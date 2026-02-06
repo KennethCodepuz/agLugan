@@ -22,20 +22,21 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody @Valid GoogleTokenDTO token) {
 
-            ResultDTO result = authService.registerUserLogic(token.getIdToken());
+        ResultDTO result = authService.registerUserLogic(token.getIdToken());
 
-            if(!result.isSuccess()) {
-                return ResponseEntity.status(401).body(result.getErrorMessage());
-            }
+        if (!result.isSuccess()) {
+            return ResponseEntity.status(401).body(result.getErrorMessage());
+        }
 
-            System.out.println(result.getUser().getEmail());
-            System.out.println(result.getUser().getId());
-            System.out.println(result.getUser().getName());
-            System.out.println(result.getUser().getProfilePicture());
-            System.out.println(result.getUser().getRole());
+        System.out.println("User successfuly registered");
 
-            return ResponseEntity.ok(result.getUser());
+        return ResponseEntity.ok(result.getUser());
+    }
 
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser() {
+
+        ResultDTO result = authService.
     }
 
 }
