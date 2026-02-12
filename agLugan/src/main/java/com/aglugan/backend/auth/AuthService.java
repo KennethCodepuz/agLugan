@@ -31,5 +31,7 @@ public class AuthService {
 
     public ResultDTO loginUserLogic(String token) {
         ResultDTO user = verifier.verifyGoogleToken(token);
+        
+        return user;
     }
 }
