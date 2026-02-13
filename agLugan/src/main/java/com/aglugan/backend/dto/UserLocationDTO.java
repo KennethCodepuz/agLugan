@@ -1,22 +1,26 @@
 package com.aglugan.backend.dto;
 
 
-public class LocationUpdateDTO {
+public class UserLocationDTO {
 
     private Long userId;
     private double longitude;
     private double latitude;
     private String role;
+    private double accuracy;
+    private Long timestamp;
 
-    public LocationUpdateDTO(){}
-    public LocationUpdateDTO(Long userId, double longitude, double latitude, String role) {
+    public UserLocationDTO(){}
+    public UserLocationDTO(Long userId, double longitude, double latitude, String role, double accuracy, Long timestamp) {
         this.userId = userId;
         this.longitude = longitude;
         this.latitude = latitude;
         this.role = role;
+        this.accuracy = accuracy;
+        this.timestamp = timestamp;
     }
 
-//    getters
+    //    getters
     public Long getUserId() { return userId; }
 
     public double getLongitude() { return longitude; }
@@ -25,7 +29,11 @@ public class LocationUpdateDTO {
 
     public String getRole() { return role; }
 
-//    Setters
+    public double getAccuracy() { return accuracy; }
+
+    public Long getTimestamp() { return timestamp; }
+
+    //    Setters
     public void setUserId(Long userId) {
         this.userId = userId;
     }
@@ -41,5 +49,9 @@ public class LocationUpdateDTO {
     public void setRole(String role) {
         this.role = role;
     }
+
+    public void setAccuracy(double accuracy) { this.accuracy = accuracy; }
+
+    public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
 
 }

@@ -33,10 +33,10 @@ public class AuthController {
         return ResponseEntity.ok(result.getUser());
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> loginUser() {
-
-        ResultDTO result = authService.
-    }
+//    @PostMapping("/login")
+////    public ResponseEntity<?> loginUser() {
+////
+////        ResultDTO result = authService.
+////    }
 
 }
