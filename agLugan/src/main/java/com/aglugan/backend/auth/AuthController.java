@@ -19,6 +19,7 @@ public class AuthController {
         this.authService = authService;
     }
 
+// Registration Method
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody @Valid GoogleTokenDTO token) {
 
@@ -33,6 +34,8 @@ public class AuthController {
         return ResponseEntity.ok(result.getUser());
     }
 
+//    Login Method 60%
+//    TODO: Implement database lookup
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody @Valid GoogleTokenDTO token) {
 
