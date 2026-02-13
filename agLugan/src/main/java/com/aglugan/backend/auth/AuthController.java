@@ -33,10 +33,18 @@ public class AuthController {
         return ResponseEntity.ok(result.getUser());
     }
 
-//    @PostMapping("/login")
-////    public ResponseEntity<?> loginUser() {
-////
-////        ResultDTO result = authService.
-////    }
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody @Valid GoogleTokenDTO token) {
+
+        ResultDTO result = authService.loginUserLogic(token.getIdToken());
+
+        if (!result.isSuccess()) {
+            return ResponseEntity.status(401).body(result.getErrorMessage());
+        }
+
+        System.out.println("User successfuly logged in");
+
+        return ResponseEntity.ok(result.getUser());
+    }
 
 }
