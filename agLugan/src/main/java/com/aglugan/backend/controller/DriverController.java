@@ -1,15 +1,15 @@
 package com.aglugan.backend.controller;
 
+import com.aglugan.backend.dto.DriverLocationDTO;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
-import com.aglugan.backend.dto.LocationUpdateDTO;
 
 @RestController
 @RequestMapping("/api/driver")
 public class DriverController {
 
     @PostMapping("/location-update")
-    public ResponseEntity<String> updateLocation(@RequestBody LocationUpdateDTO location) {
+    public ResponseEntity<String> updateLocation(@RequestBody DriverLocationDTO location) {
 
         System.out.println("Received location: ");
         System.out.println("User ID: " + location.getUserId());
