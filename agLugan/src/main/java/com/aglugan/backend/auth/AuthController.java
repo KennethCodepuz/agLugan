@@ -25,7 +25,7 @@ public class AuthController {
 
         ResultDTO result = authService.registerUserLogic(token.getIdToken());
 
-        if (!result.isSuccess()) {
+        if (!result.isGoogleUserSuccess()) {
             return ResponseEntity.status(401).body(result.getErrorMessage());
         }
 
@@ -41,14 +41,14 @@ public class AuthController {
 
         ResultDTO result = authService.loginUserLogic(token.getIdToken());
 
-        if (!result.isSuccess()) {
-            return ResponseEntity.status(401).body(result.getErrorMessage());
+        if (!result.isUserSuccess()) {
+            return ResponseEntity.status(401).body(result);
         }
 
         System.out.println("User successfuly logged in");
+        System.out.println(result);
 
         return ResponseEntity.ok(result.getUser());
     }
-
 
 }

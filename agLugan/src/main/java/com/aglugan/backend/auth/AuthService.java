@@ -7,6 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.aglugan.backend.auth.googleAuth.GoogleTokenVerifier;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 @Service
 public class AuthService {
 
@@ -22,8 +26,19 @@ public class AuthService {
     public ResultDTO registerUserLogic(String token) {
         ResultDTO user = verifier.verifyGoogleToken(token);
 
+        if(user.isGoogleUserSuccess() || user.getGoogleUser() == null) {
+            return user;
+        }
+
+//        Check if User is already registered
+        Optional<User> userGoogleSub = userService.getUserByGoogleSub(user.getGoogleUser().getId());
+        if(userGoogleSub.isPresent()) {
+            ResultDTO result = ResultDTO.errorMessage("User already registered");
+            return result;
+        }
+
 //        Store to database
-        User newUser = new User(user.getUser().getId(), user.getUser().getName(), user.getUser().getEmail(), "USER" ,user.getUser().getProfilePicture());
+        User newUser = new User(user.getUser().getGoogleSub(), user.getUser().getName(), user.getUser().getEmail(), null ,user.getUser().getProfilePicture());
         userService.createUser(newUser);
 
         return user;
@@ -33,7 +48,18 @@ public class AuthService {
     public ResultDTO loginUserLogic(String token) {
         ResultDTO user = verifier.verifyGoogleToken(token);
 
-        return user;
+//        Check database for user
+        Optional<User> userGoogleSub = userService.getUserByGoogleSub(user.getGoogleUser().getId());
+
+        if(userGoogleSub.isPresent()) {
+            User userData = userGoogleSub.get();
+            ResultDTO result = ResultDTO.userSuccess(userData);
+            return  result;
+        }else {
+            System.out.println("User not found");
+            ResultDTO result = ResultDTO.errorMessage("User is not registered");
+            return  result;
+        }
     }
 
 }
