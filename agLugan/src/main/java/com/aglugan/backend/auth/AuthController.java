@@ -19,12 +19,13 @@ public class AuthController {
         this.authService = authService;
     }
 
+// Registration Method
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody @Valid GoogleTokenDTO token) {
 
         ResultDTO result = authService.registerUserLogic(token.getIdToken());
 
-        if (!result.isSuccess()) {
+        if (!result.isGoogleUserSuccess()) {
             return ResponseEntity.status(401).body(result.getErrorMessage());
         }
 
@@ -33,10 +34,22 @@ public class AuthController {
         return ResponseEntity.ok(result.getUser());
     }
 
-//    @PostMapping("/login")
-////    public ResponseEntity<?> loginUser() {
-////
-////        ResultDTO result = authService.
-////    }
+
+//    Login Method 60%
+//    TODO: Implement database lookup
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody @Valid GoogleTokenDTO token) {
+
+        ResultDTO result = authService.loginUserLogic(token.getIdToken());
+
+        if (!result.isUserSuccess()) {
+            return ResponseEntity.status(401).body(result);
+        }
+
+        System.out.println("User successfuly logged in");
+        System.out.println(result);
+
+        return ResponseEntity.ok(result.getUser());
+    }
 
 }

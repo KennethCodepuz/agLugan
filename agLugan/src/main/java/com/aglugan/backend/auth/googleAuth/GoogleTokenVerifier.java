@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.stereotype.Component;
 
+import javax.xml.transform.Result;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
@@ -32,17 +33,16 @@ public class GoogleTokenVerifier {
         try {
             GoogleIdToken idToken = verifier.verify(token);
             System.out.println("Verification result: " + idToken);
-            System.out.println(clientID);
             if(idToken == null) {
                 throw new IOException("Invalid User");
             }
             GoogleIdToken.Payload payload = idToken.getPayload();
             GoogleUserDTO user = new GoogleUserDTO(payload.getSubject(), (String) payload.get("name"), payload.getEmail(), (String) payload.get("picture"), null);
-            ResultDTO result = new ResultDTO(user, null);
+            ResultDTO result = ResultDTO.googleUserSuccess(user);
             return result;
         }catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
-            ResultDTO result = new ResultDTO(null, e.getMessage());
+            ResultDTO result = ResultDTO.errorMessage(e.getMessage());
             return result;
         }
 

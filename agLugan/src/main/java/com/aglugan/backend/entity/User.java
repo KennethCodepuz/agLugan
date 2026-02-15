@@ -34,7 +34,21 @@ public class User {
         this.role = role;
     }
 
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                "googleSub='" + googleSub + '\'' +
+                ", name='" + name + '\'' +
+                ", email='" + email + '\'' +
+                ", role='" + role + '\'' +
+                ", profilePicture='" + profilePicture + '\'' +
+                '}';
+    }
+
 //    getters
+
+    public long getId() { return id; }
     public String getGoogleSub() { return googleSub; }
     public String getName() { return name; }
     public String getEmail() { return email; }
