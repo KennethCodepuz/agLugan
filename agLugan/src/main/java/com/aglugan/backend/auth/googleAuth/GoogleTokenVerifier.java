@@ -32,7 +32,7 @@ public class GoogleTokenVerifier {
 
         try {
             GoogleIdToken idToken = verifier.verify(token);
-            System.out.println("Verification result: " + idToken);
+            System.out.println(idToken);
             if(idToken == null) {
                 throw new IOException("Invalid User");
             }

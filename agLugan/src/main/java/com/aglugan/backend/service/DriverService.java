@@ -1,6 +1,7 @@
 package com.aglugan.backend.service;
 
 import com.aglugan.backend.entity.Driver;
+import com.aglugan.backend.entity.User;
 import com.aglugan.backend.repository.DriverRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -33,4 +34,6 @@ public class DriverService {
     public void deleteDriver(Long id) {
         driverRepository.deleteById(id);
     }
+
+    public Optional<Driver> getDriverByGoogleSub(String googleSub) { return driverRepository.findByGoogleSub(googleSub); }
 }

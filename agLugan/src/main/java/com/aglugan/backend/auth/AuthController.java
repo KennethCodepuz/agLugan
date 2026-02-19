@@ -1,7 +1,9 @@
 package com.aglugan.backend.auth;
 
 import com.aglugan.backend.auth.authDTO.GoogleTokenDTO;
+import com.aglugan.backend.auth.authDTO.GoogleUserDTO;
 import com.aglugan.backend.auth.authDTO.ResultDTO;
+import com.aglugan.backend.auth.authDTO.SecondInformationDTO;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +21,29 @@ public class AuthController {
         this.authService = authService;
     }
 
+//    verify google token first
+    @PostMapping("/google/verifyToken")
+    public ResponseEntity<?> verifyGoogleUser(@RequestBody GoogleTokenDTO token) {
+
+        String tempToken = authService.verifyToken(token.getIdToken());
+        System.out.println("Temp token1: " + tempToken);
+
+        if(tempToken == null || tempToken.isEmpty()) {
+            return ResponseEntity.status(400).body("Invalid Google Token");
+        }
+
+        System.out.println("Temp token: " + tempToken);
+
+        return ResponseEntity.ok(tempToken);
+    }
+
 // Registration Method
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody @Valid GoogleTokenDTO token) {
+    public ResponseEntity<?> registerUser(@RequestBody @Valid SecondInformationDTO secondInformation) {
 
-        ResultDTO result = authService.registerUserLogic(token.getIdToken());
+        ResultDTO result = authService.registerUserLogic(secondInformation);
+
+        System.out.println(secondInformation);
 
         if (!result.isGoogleUserSuccess()) {
             return ResponseEntity.status(401).body(result.getErrorMessage());
@@ -35,8 +55,7 @@ public class AuthController {
     }
 
 
-//    Login Method 60%
-//    TODO: Implement database lookup
+//    Login Method
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody @Valid GoogleTokenDTO token) {
 
