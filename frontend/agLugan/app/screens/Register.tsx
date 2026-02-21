@@ -1,22 +1,53 @@
 import React from "react";
 
+import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import AppleIcon from "../../assets/icons/appleIconWhite.svg";
 import GoogleIcon from "../../assets/icons/googleIcon.svg";
 
 export default function Register() {
   return (
     <>
       <View style={styles.container}>
-        <Image
-          style={styles.logo}
-          source={require("../../assets/logo.png")}
-        ></Image>
-        <Text>agLugan</Text>
+        <View style={{ alignItems: "center" }}>
+          <Image
+            style={styles.logo}
+            source={require("../../assets/logo-2.png")}
+          ></Image>
+          <Text style={styles.agLugan}>agLugan</Text>
+        </View>
 
-        <Pressable style={styles.button}>
-          <GoogleIcon width={26} height={26} />
-          <Text style={styles.buttonText}>Sign up</Text>
-        </Pressable>
+        <View style={styles.welcomeTextContainer}>
+          <Text style={styles.welcomeText}>Welcome</Text>
+          <Text style={styles.createAccountTExt}>Create your account</Text>
+        </View>
+
+        <View style={{ width: "100%", alignItems: "center", gap: 10 }}>
+          <Text style={styles.termsText}>
+            By continuing, you agree to our Terms & Privacy Policy
+          </Text>
+
+          <Pressable style={{ width: "100%", alignItems: "center" }}>
+            <LinearGradient
+              colors={["#4c1dda", "#9f1dd3"]}
+              style={styles.googleButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <GoogleIcon width={28} height={28} />
+              <Text style={styles.buttonText}>Sign up with Google</Text>
+            </LinearGradient>
+          </Pressable>
+
+          <Pressable style={styles.appleButton}>
+            <AppleIcon width={28} height={28} />
+            <Text style={styles.buttonText}>Sign up with Apple</Text>
+          </Pressable>
+          <Text style={styles.bottomText}>
+            Already have an account?
+            <Text style={{ color: "#3b79ff" }}>{"\t"}Sign up</Text>
+          </Text>
+        </View>
       </View>
     </>
   );
@@ -26,29 +57,71 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
-    paddingBlock: 10,
+    justifyContent: "space-between",
+    paddingBlock: 20,
+    width: "100%",
   },
   logo: {
-    width: 256,
-    height: 256,
+    width: 220,
+    height: 220,
+    resizeMode: "contain",
   },
   icon: {
     width: 24,
     height: 24,
   },
-  button: {
+  googleButton: {
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 5,
-    borderColor: "Black",
     borderWidth: 1,
     borderRadius: 50,
-    paddingBlock: 6,
-    paddingInline: 18,
-    textAlign: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    width: "70%",
+  },
+  appleButton: {
+    alignItems: "center",
+    backgroundColor: "black",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 50,
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    width: "70%",
   },
   buttonText: {
-    fontSize: 26,
+    fontSize: 18,
+    fontFamily: "Roboto",
+    color: "white",
+  },
+  agLugan: {
+    fontSize: 28,
+    fontFamily: "Inter",
+    fontWeight: "bold",
+  },
+  welcomeTextContainer: {
+    width: "100%",
+    alignItems: "center",
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: "700",
+    fontFamily: "Inter",
+  },
+  createAccountTExt: {
+    fontSize: 18,
+    fontFamily: "Inter",
+  },
+  termsText: {
+    fontSize: 14,
+    fontFamily: "Inter",
+  },
+  bottomText: {
+    fontSize: 16,
+    fontFamily: "Inter ",
   },
 });
