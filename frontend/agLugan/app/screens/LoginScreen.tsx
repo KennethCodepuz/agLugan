@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppleIcon from "../../assets/icons/appleIconWhite.svg";
 import GoogleIcon from "../../assets/icons/googleIcon.svg";
 
-export default function Register() {
+function LoginScreen() {
   return (
     <>
       <View style={styles.container}>
@@ -17,9 +17,9 @@ export default function Register() {
           <Text style={styles.agLugan}>agLugan</Text>
         </View>
 
-        <View style={styles.welcomeTextContainer}>
-          <Text style={styles.welcomeText}>Welcome</Text>
-          <Text style={styles.createAccountTExt}>Create your account</Text>
+        <View style={{ alignItems: "center", gap: 5 }}>
+          <Text style={styles.welcomeText}>Welcome back</Text>
+          <Text style={styles.loginText}>Log in to your account</Text>
         </View>
 
         <View style={{ width: "100%", alignItems: "center", gap: 10 }}>
@@ -39,16 +39,16 @@ export default function Register() {
               end={{ x: 1, y: 1 }}
             >
               <GoogleIcon width={28} height={28} />
-              <Text style={styles.buttonText}>Sign up with Google</Text>
+              <Text style={styles.buttonText}>Continue with Google</Text>
             </LinearGradient>
           </Pressable>
 
           <Pressable style={styles.appleButton}>
             <AppleIcon width={28} height={28} />
-            <Text style={styles.buttonText}>Sign up with Apple</Text>
+            <Text style={styles.buttonText}>Continue with Apple</Text>
           </Pressable>
           <Text style={styles.bottomText}>
-            Already have an account?
+            {"Don't "}have an account?
             <Text style={{ color: "#4c1dda" }}>{"\t"}Sign up</Text>
           </Text>
         </View>
@@ -71,9 +71,23 @@ const styles = StyleSheet.create({
     height: 220,
     resizeMode: "contain",
   },
-  icon: {
-    width: 24,
-    height: 24,
+  agLugan: {
+    fontSize: 28,
+    fontFamily: "serif",
+    fontWeight: "bold",
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: 800,
+    fontFamily: "inter",
+  },
+  loginText: {
+    fontSize: 16,
+    color: "#808080",
+    fontFamily: "inter",
+  },
+  termsText: {
+    color: "#8a8a8a",
   },
   googleButton: {
     alignItems: "center",
@@ -100,35 +114,14 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 18,
-    fontFamily: "Roboto",
+    fontFamily: "Inter",
     color: "white",
-  },
-  agLugan: {
-    fontSize: 28,
-    fontFamily: "serif",
-    fontWeight: "bold",
-  },
-  welcomeTextContainer: {
-    width: "100%",
-    alignItems: "center",
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: "700",
-    fontFamily: "Inter",
-  },
-  createAccountTExt: {
-    fontSize: 16,
-    color: "#808080",
-    fontFamily: "inter",
-  },
-  termsText: {
-    color: "#8a8a8a",
-    fontFamily: "Inter",
   },
   bottomText: {
     fontSize: 16,
-    fontFamily: "Inter ",
+    fontFamily: "Inter",
     color: "#8a8a8a",
   },
 });
+
+export default LoginScreen;
