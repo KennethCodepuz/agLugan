@@ -1,7 +1,17 @@
-import React from "react";
+// import React from "react";
 
-function HomeScreen() {
-  return <></>;
-}
+// import { View } from "react-native";
 
-export default HomeScreen;
+// import { GoogleMaps } from "expo-maps";
+
+// function HomeScreen() {
+//   return (
+//     <>
+//       <View>
+//         <GoogleMaps.View></GoogleMaps.View>
+//       </View>
+//     </>
+//   );
+// }
+
+// export default HomeScreen;

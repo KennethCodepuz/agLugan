@@ -32,7 +32,10 @@ function AuthScreen() {
               ></Image>
             </LinearGradient>
           </Pressable>
-          <Pressable style={styles.button}>
+          <Pressable
+            style={styles.button}
+            onPress={() => router.navigate("/screens/Forms/DriverForm")}
+          >
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.button}
