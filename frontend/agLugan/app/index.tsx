@@ -2,7 +2,7 @@ import { View } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 // import LoginScreen from "./screens/LoginScreen";
-import LoginScreen from "./screens/LoginScreen";
+import AuthScreen from "./screens/AuthScreen";
 
 export default function Index() {
   return (
@@ -14,7 +14,7 @@ export default function Index() {
           alignItems: "center",
         }}
       >
-        <LoginScreen />
+        <AuthScreen />
       </View>
     </SafeAreaView>
   );
