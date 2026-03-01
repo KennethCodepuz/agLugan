@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth2/**").permitAll()
                         .requestMatchers("/ws").permitAll()
+                        .requestMatchers("/api/getzones").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(basic -> {});
