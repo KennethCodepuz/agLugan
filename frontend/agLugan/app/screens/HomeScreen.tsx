@@ -1,14 +1,14 @@
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import {
-	ActivityIndicator,
-	Image,
-	Modal,
-	Platform,
-	Pressable,
-	StyleSheet,
-	Text,
-	View,
+  ActivityIndicator,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
