@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth2")
 public class AuthController {
@@ -28,13 +31,18 @@ public class AuthController {
         String tempToken = authService.verifyToken(token.getIdToken());
         System.out.println("Temp token1: " + tempToken);
 
+        System.out.println(token.getIdToken());
+
         if(tempToken == null || tempToken.isEmpty()) {
-            return ResponseEntity.status(400).body("Invalid Google Token");
+            return ResponseEntity.status(404).body(ResultDTO.errorMessage(tempToken));
         }
 
         System.out.println("Temp token: " + tempToken);
+        Map<String, Object> response = new HashMap<>();
+        response.put("tempToken", tempToken);
+        response.put("success", true);
 
-        return ResponseEntity.ok(tempToken);
+        return ResponseEntity.ok(response);
     }
 
 // Registration Method
@@ -46,12 +54,12 @@ public class AuthController {
         System.out.println(secondInformation);
 
         if (!result.isGoogleUserSuccess()) {
-            return ResponseEntity.status(401).body(result.getErrorMessage());
+            return ResponseEntity.status(401).body(result);
         }
 
-        System.out.println("User successfuly registered");
+        System.out.println("User successfuly registered: " + result);
 
-        return ResponseEntity.ok(result.getUser());
+        return ResponseEntity.ok(result.getRegisteredUser());
     }
 
 
@@ -66,9 +74,9 @@ public class AuthController {
         }
 
         System.out.println("User successfuly logged in");
-        System.out.println(result);
+        System.out.println("result" + result);
 
-        return ResponseEntity.ok(result.getUser());
+        return ResponseEntity.ok(result.getRegisteredUser());
     }
 
 }

@@ -35,6 +35,7 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.aglugan",
+      googleServicesFile: "./google-services.json",
     },
     web: {
       output: "static",
@@ -54,6 +55,7 @@ export default {
           },
         },
       ],
+      "expo-web-browser",
       [
         "expo-maps",
         {

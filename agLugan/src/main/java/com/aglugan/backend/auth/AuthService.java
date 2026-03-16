@@ -46,10 +46,11 @@ public class AuthService {
 
     public ResultDTO registerUserLogic(SecondInformationDTO secondInformation) {
         Claims user = jwtService.extractAllClaims(secondInformation.gettempToken());
+        System.out.println(user);
 //                                                                        user.get returns an object so we use String.class as a type getter
         ResultDTO result = ResultDTO.googleUserSuccess(new GoogleUserDTO(user.get("googleSub", String.class), user.get("name", String.class), user.get("email", String.class), user.get("profilePicture", String.class), secondInformation.getRole()));
 
-        if(result.isGoogleUserSuccess() || result.getGoogleUser() == null) {
+        if(result.getGoogleUser() != null) {
             if(Objects.equals(secondInformation.getRole(), "USER")) {
 //                check user in database
                 Optional<User> userGoogleSub = userService.getUserByGoogleSub(result.getGoogleUser().getGoogleSub());
@@ -80,7 +81,7 @@ public class AuthService {
         ResultDTO user = verifier.verifyGoogleToken(token);
 
         if(user.isGoogleUserSuccess() || user.getGoogleUser() == null) {
-            if(Objects.equals(user.getUser().getRole(), "USER")) {
+            if(Objects.equals(user.getRegisteredUser().getRole(), "USER")) {
                 Optional<User> userGoogleSub = userService.getUserByGoogleSub(user.getGoogleUser().getGoogleSub());
                 if(userGoogleSub.isPresent()) {
                     User userData = userGoogleSub.get();

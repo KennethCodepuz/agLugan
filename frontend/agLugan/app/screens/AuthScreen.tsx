@@ -3,10 +3,33 @@ import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+
+type AuthData = {
+  success: boolean;
+  tempToken: string;
+};
 
 function AuthScreen() {
   const router = useRouter();
+  const { data } = useLocalSearchParams<{ data: string }>();
+  const parseData: AuthData = data
+    ? JSON.parse(data)
+    : { success: false, tempToken: "" };
+
+  const goToUserForm = () => {
+    router.push({
+      pathname: "/screens/Forms/UserForm",
+      params: { data: JSON.stringify(parseData), role: "USER" },
+    });
+  };
+
+  const goToDriverForm = () => {
+    router.push({
+      pathname: "/screens/Forms/DriverForm",
+      params: { data: JSON.stringify(parseData), role: "DRIVER" },
+    });
+  };
 
   return (
     <>
@@ -15,10 +38,7 @@ function AuthScreen() {
           Choose account type
         </Text>
         <View style={styles.container}>
-          <Pressable
-            style={styles.button}
-            onPress={() => router.navigate("/screens/Forms/UserForm")}
-          >
+          <Pressable style={styles.button} onPress={goToUserForm}>
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.button}
@@ -32,10 +52,7 @@ function AuthScreen() {
               ></Image>
             </LinearGradient>
           </Pressable>
-          <Pressable
-            style={styles.button}
-            onPress={() => router.navigate("/screens/Forms/DriverForm")}
-          >
+          <Pressable style={styles.button} onPress={goToDriverForm}>
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.button}

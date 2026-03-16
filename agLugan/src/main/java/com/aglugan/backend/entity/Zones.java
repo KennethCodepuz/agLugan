@@ -16,6 +16,9 @@ public class Zones {
     public String location;
     public String imageurl;
 
+    @Column(nullable = false, columnDefinition = "float8 default 200")
+    public double radius = 200;
+
     public Zones() {}
     public Zones(Long id, double longitude, double latitude, String classification, String location, String imageurl) {
         this.id = id;
@@ -37,6 +40,8 @@ public class Zones {
     public String getLocation() { return location; }
 
     public String getImageurl() { return imageurl; }
+
+    public double getRadius() { return radius; }
 
     public void setId(Long id) { this.id = id; }
 

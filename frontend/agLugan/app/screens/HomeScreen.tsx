@@ -1,26 +1,68 @@
 import * as Location from "expo-location";
-import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, {
+  AnimatedRegion,
+  Marker,
+  MarkerAnimated,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useZones, Zone } from "../../hooks/useZones";
 
-import { useZones } from "../../hooks/useZones";
+const WS_URL = "ws://10.0.2.2:8080/ws";
+const RECONNECT_DELAY_MS = 3000;
+const LOCATION_SEND_INTERVAL_MS = 3000;
 
-type Zone = {
-  id: number;
+interface LiveUser {
+  id: string;
   latitude: number;
   longitude: number;
-  classification: string | null;
-  location: string;
-  imageurl: string;
+  role?: "USER" | "DRIVER";
+}
+
+interface AnimatedLiveUser extends LiveUser {
+  animatedCoordinate: AnimatedRegion;
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+const getDistanceKm = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const getETA = (
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+  avgSpeedKmH = 30,
+) => {
+  const distance = getDistanceKm(fromLat, fromLng, toLat, toLng);
+  const etaHours = distance / avgSpeedKmH;
+  return Math.ceil(etaHours * 60);
 };
 
 function HomeScreen() {
@@ -29,9 +71,116 @@ function HomeScreen() {
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
-  const { zones, loading, error } = useZones();
+  const [showZones, setShowZones] = useState(true);
+  const [activeMarker, setActiveMarker] = useState<number | null>(null);
+  const [liveUsers, setLiveUsers] = useState<Map<string, AnimatedLiveUser>>(
+    new Map(),
+  );
+  const [driverETAs, setDriverETAs] = useState<Map<string, number>>(new Map());
+  const { data } = useLocalSearchParams<{ data: string }>();
 
+  const currentUser = React.useMemo(() => {
+    try {
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  }, [data]);
+
+  const { zones } = useZones();
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const latestLocation = useRef<Location.LocationObject | null>(null);
+  const isMounted = useRef(true);
+
+  // ─── WebSocket ───────────────────────────────────────────
+  const connect = useCallback(() => {
+    if (!isMounted.current) return;
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+
+      sendTimer.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN && latestLocation.current) {
+          ws.send(
+            JSON.stringify({
+              latitude: latestLocation.current.coords.latitude,
+              longitude: latestLocation.current.coords.longitude,
+              role: currentUser?.role ?? "USER",
+              id: currentUser?.id?.toString(),
+            }),
+          );
+        }
+      }, LOCATION_SEND_INTERVAL_MS);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const updates: LiveUser[] = Array.isArray(data) ? data : [data];
+
+        setLiveUsers((prev) => {
+          const next = new Map(prev);
+
+          for (const user of updates) {
+            if (user.id && user.latitude != null && user.longitude != null) {
+              const existing = next.get(user.id);
+
+              if (existing) {
+                const duration = user.role === "DRIVER" ? 1000 : 300;
+                existing.animatedCoordinate
+                  .timing({
+                    latitude: user.latitude,
+                    longitude: user.longitude,
+                    latitudeDelta: 0,
+                    longitudeDelta: 0,
+                    duration,
+                    useNativeDriver: false,
+                  })
+                  .start();
+
+                next.set(user.id, {
+                  ...existing,
+                  latitude: user.latitude,
+                  longitude: user.longitude,
+                  role: user.role,
+                });
+              } else {
+                const animatedCoordinate = new AnimatedRegion({
+                  latitude: user.latitude,
+                  longitude: user.longitude,
+                  latitudeDelta: 0,
+                  longitudeDelta: 0,
+                });
+                next.set(user.id, { ...user, animatedCoordinate });
+              }
+            }
+          }
+          return next;
+        });
+      } catch {
+        // ignore non-JSON
+      }
+    };
+
+    ws.onerror = () => {};
+    ws.onclose = () => {
+      if (sendTimer.current) clearInterval(sendTimer.current);
+      if (isMounted.current)
+        reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
+    };
+  }, [currentUser]);
+
+  // ─── Location ─────────────────────────────────────────────
   useEffect(() => {
+    isMounted.current = true;
+    connect();
+
     async function getCurrentLocation() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -45,33 +194,85 @@ function HomeScreen() {
         return;
       }
 
-      const location = await Location.watchPositionAsync(
+      const subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High },
         (loc) => {
           setLocation(loc);
-          location.remove();
+          latestLocation.current = loc;
         },
       );
-    }
-    getCurrentLocation();
-  }, []);
 
-  if (errorMsg) {
+      return subscription;
+    }
+
+    const subPromise = getCurrentLocation();
+
+    return () => {
+      isMounted.current = false;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      if (sendTimer.current) clearInterval(sendTimer.current);
+      wsRef.current?.close();
+      subPromise.then((sub) => sub?.remove());
+    };
+  }, [connect]);
+
+  // ─── Real-time ETA recalculation ─────────────────────────
+  useEffect(() => {
+    if (!location) return;
+    const interval = setInterval(() => {
+      setDriverETAs((prevETAs) => {
+        const updated = new Map(prevETAs);
+        liveUsers.forEach((user) => {
+          if (user.role === "DRIVER") {
+            const eta = getETA(
+              user.latitude,
+              user.longitude,
+              location.coords.latitude,
+              location.coords.longitude,
+            );
+            updated.set(user.id, eta);
+          }
+        });
+        return updated;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [liveUsers, location]);
+
+  // ─── Helper for zone icons ───────────────────────────────
+  const getZoneIcon = (classification?: string) => {
+    switch (classification) {
+      case "Waiting Shed":
+        return "🏠";
+      case "Stop":
+        return "🚏";
+      case "Tricycle Terminal":
+        return "🛺";
+      case "Jeepney Terminal":
+        return "🚐";
+      case "Common":
+        return "📍";
+      case "Uncommon":
+        return "⚠️";
+      default:
+        return "📍";
+    }
+  };
+
+  if (errorMsg)
     return (
       <View style={styles.centered}>
         <Text>{errorMsg}</Text>
       </View>
     );
-  }
-
-  if (!location) {
+  if (!location)
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" />
         <Text>Getting your location...</Text>
       </View>
     );
-  }
 
   const mapStyle = [
     { elementType: "geometry", stylers: [{ color: "#0f1a24" }] },
@@ -111,123 +312,126 @@ function HomeScreen() {
   ];
 
   return (
-    <View style={{ flex: 1, width: "100%" }}>
-      <MapView
-        style={StyleSheet.absoluteFill}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-        customMapStyle={mapStyle}
-        showsUserLocation={true}
-        followsUserLocation={true}
-        initialRegion={{
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }}
-      >
-        {zones
-          .filter((zone) => zone.classification !== null)
-          .map((zone) => (
-            <Marker
-              key={zone.id.toString()}
-              coordinate={{
-                latitude: zone.latitude,
-                longitude: zone.longitude,
-              }}
-              anchor={{ x: 0.5, y: 1 }}
-              onPress={() => setSelectedZone(zone)}
-            >
-              {/* Round marker with pin tip */}
-              <View style={styles.markerWrapper}>
-                <View style={styles.markerRing}>
-                  <Image
-                    source={{ uri: zone.imageurl }}
-                    style={styles.markerImage}
-                  />
-                </View>
-                <View style={styles.markerTip} />
-              </View>
-            </Marker>
-          ))}
-      </MapView>
-
-      {/* Zone Detail Modal */}
-      <Modal
-        visible={selectedZone !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedZone(null)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setSelectedZone(null)}
+    <SafeAreaView style={{ flex: 1, width: "100%" }}>
+      <View style={{ flex: 1, width: "100%" }}>
+        <MapView
+          style={StyleSheet.absoluteFill}
+          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          customMapStyle={mapStyle}
+          showsUserLocation={false}
+          followsUserLocation={false}
+          initialRegion={{
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }}
         >
-          <Pressable
-            style={styles.modalSheet}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {selectedZone && (
-              <>
-                {/* Header image */}
-                <View style={styles.modalImageContainer}>
-                  <Image
-                    source={{ uri: selectedZone.imageurl }}
-                    style={styles.modalImage}
-                    resizeMode="cover"
-                  />
-                  {/* Gradient overlay effect using a dark View */}
-                  <View style={styles.modalImageOverlay} />
-                </View>
-
-                {/* Content */}
-                <View style={styles.modalContent}>
-                  {/* Classification badge */}
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {selectedZone.classification ?? "Unknown"}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.modalTitle}>
-                    {selectedZone.classification ?? "Unknown Zone"}
-                  </Text>
-
-                  <View style={styles.locationRow}>
-                    <Text style={styles.locationIcon}>📍</Text>
-                    <Text style={styles.modalLocation}>
-                      {selectedZone.location}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Close button */}
-                <Pressable
-                  style={styles.closeButton}
-                  onPress={() => setSelectedZone(null)}
+          {showZones &&
+            zones
+              .filter((z) => z.classification)
+              .map((zone) => (
+                <Marker
+                  key={zone.id.toString()}
+                  coordinate={{
+                    latitude: zone.latitude,
+                    longitude: zone.longitude,
+                  }}
+                  anchor={{ x: 0.5, y: 1 }}
+                  onPress={() => {
+                    setSelectedZone(zone);
+                    setActiveMarker(zone.id);
+                  }}
                 >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </Pressable>
-              </>
+                  <View style={styles.markerWrapper}>
+                    {activeMarker === zone.id ? (
+                      <View style={styles.markerRing}>
+                        <Image
+                          source={{ uri: zone.imageurl }}
+                          style={styles.markerImage}
+                        />
+                      </View>
+                    ) : (
+                      <View style={styles.iconMarker}>
+                        <Text style={styles.iconText}>
+                          {getZoneIcon(zone.classification)}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.markerTip} />
+                  </View>
+                </Marker>
+              ))}
+
+          <Marker
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            {currentUser?.role === "DRIVER" ? (
+              <View style={styles.driverMarker}>
+                <Text style={styles.driverIcon}>🚐</Text>
+                <View style={[styles.driverPulse, styles.selfPulse]} />
+              </View>
+            ) : (
+              <View style={[styles.liveUserMarker, styles.selfMarker]}>
+                <Text style={styles.liveUserIcon}>🧑</Text>
+              </View>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+          </Marker>
+
+          {Array.from(liveUsers.values())
+            .filter((u) => u.id !== currentUser?.id?.toString())
+            .map((user) => (
+              <MarkerAnimated
+                key={`live-${user.id}`}
+                coordinate={user.animatedCoordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={true}
+              >
+                {user.role === "DRIVER" ? (
+                  <View style={styles.driverMarker}>
+                    <Text style={styles.driverIcon}>🚐</Text>
+                    <View style={styles.driverPulse} />
+                  </View>
+                ) : (
+                  <View style={styles.liveUserMarker}>
+                    <Text style={styles.liveUserIcon}>🧑</Text>
+                  </View>
+                )}
+              </MarkerAnimated>
+            ))}
+        </MapView>
+
+        <View style={styles.etaContainer}>
+          {driverETAs.size > 0 ? (
+            <Text style={styles.etaText}>
+              ETA: {Math.min(...Array.from(driverETAs.values()))} min
+            </Text>
+          ) : (
+            <Text style={styles.etaText}>ETA: Calculating...</Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={() => setShowZones((p) => !p)}
+        >
+          <Text style={styles.toggleButtonText}>
+            {showZones ? "Hide Zones" : "Show Zones"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  // ── Marker ──────────────────────────────────────────
-  markerWrapper: {
-    alignItems: "center",
-    width: 64,
-  },
+  markerWrapper: { alignItems: "center", width: 64 },
   markerRing: {
     width: 56,
     height: 56,
@@ -235,16 +439,21 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#ffffff",
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
     elevation: 8,
   },
-  markerImage: {
-    width: "100%",
-    height: "100%",
+  markerImage: { width: "100%", height: "100%" },
+  iconMarker: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#1f3a4d",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    elevation: 6,
   },
+  iconText: { fontSize: 20 },
   markerTip: {
     marginTop: -1,
     width: 0,
@@ -257,87 +466,71 @@ const styles = StyleSheet.create({
     borderTopColor: "#ffffff",
   },
 
-  // ── Modal ────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+  liveUserMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#2a4d66",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#9bb6c9",
+    elevation: 6,
   },
-  modalSheet: {
-    backgroundColor: "#0f1a24",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: "hidden",
-    paddingBottom: 36,
+  liveUserIcon: { fontSize: 18 },
+  selfMarker: {
+    borderColor: "#ffffff",
+    borderWidth: 3,
+    backgroundColor: "#1a6691",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
-  modalImageContainer: {
-    width: "100%",
-    height: 200,
+  selfPulse: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(255,255,255,0.7)",
+  },
+
+  driverMarker: {
+    alignItems: "center",
+    justifyContent: "center",
     position: "relative",
   },
-  modalImage: {
-    width: "100%",
-    height: "100%",
+  driverIcon: { fontSize: 28, zIndex: 2 },
+  driverPulse: {
+    position: "absolute",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,200,50,0.25)",
+    borderWidth: 2,
+    borderColor: "rgba(255,200,50,0.6)",
+    zIndex: 1,
   },
-  modalImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(10, 26, 43, 0.35)",
-  },
-  modalContent: {
-    padding: 20,
-    paddingBottom: 8,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(155, 182, 201, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(155, 182, 201, 0.3)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 10,
-  },
-  badgeText: {
-    color: "#9bb6c9",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#e8f1f8",
-    marginBottom: 10,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-  },
-  locationIcon: {
-    fontSize: 14,
-    marginTop: 1,
-  },
-  modalLocation: {
-    fontSize: 14,
-    color: "#9bb6c9",
-    flex: 1,
-    lineHeight: 20,
-  },
-  closeButton: {
-    marginHorizontal: 20,
-    marginTop: 16,
+
+  toggleButton: {
+    position: "absolute",
+    bottom: 40,
+    right: 20,
     backgroundColor: "#1f3a4d",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 6,
   },
-  closeButtonText: {
-    color: "#e8f1f8",
-    fontSize: 15,
-    fontWeight: "600",
+  toggleButtonText: { color: "#e8f1f8", fontWeight: "600" },
+
+  etaContainer: {
+    position: "absolute",
+    bottom: 100,
+    left: 20,
+    backgroundColor: "rgba(15,26,36,0.85)",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 5,
   },
+  etaText: { color: "#e8f1f8", fontWeight: "600", fontSize: 16 },
 });
 
 export default HomeScreen;

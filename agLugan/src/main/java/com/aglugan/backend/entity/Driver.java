@@ -68,6 +68,8 @@ public class Driver {
 
     public String getDriversLicense() { return driversLicense; }
 
+    public Long getId() { return id; }
+
     public void setGoogleSub(String googleSub) { this.googleSub = googleSub; }
 
     public void setName(String name) { this.name = name; }
@@ -87,4 +89,5 @@ public class Driver {
     public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
 
     public void setDriversLicense(String driversLicense) { this.driversLicense = driversLicense; }
+
 }

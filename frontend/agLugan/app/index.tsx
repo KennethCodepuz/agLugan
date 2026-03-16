@@ -1,8 +1,8 @@
 import { View } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
-// import LoginScreen from "./screens/LoginScreen";
-import HomeScreen from "./screens/HomeScreen";
+// import HomeScreen from "./screens/HomeScreen";
+import LoginScreen from "./screens/LoginScreen";
 
 export default function Index() {
   return (
@@ -14,7 +14,7 @@ export default function Index() {
           alignItems: "center",
         }}
       >
-        <HomeScreen />
+        <LoginScreen />
       </View>
     </SafeAreaView>
   );

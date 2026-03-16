@@ -5,7 +5,13 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppleIcon from "../../assets/icons/appleIconWhite.svg";
 import GoogleIcon from "../../assets/icons/googleIcon.svg";
 
+import { useRouter } from "expo-router";
+
+// sdk.dir=C:\\Users\\Kenne\\AppData\\Local\\Android\\Sdk
+
 function LoginScreen() {
+  const router = useRouter();
+
   return (
     <>
       <View style={styles.container}>
@@ -47,9 +53,12 @@ function LoginScreen() {
             <AppleIcon width={28} height={28} />
             <Text style={styles.buttonText}>Continue with Apple</Text>
           </Pressable>
+
           <Text style={styles.bottomText}>
             {"Don't "}have an account?
-            <Text style={{ color: "#4c1dda" }}>{"\t"}Sign up</Text>
+            <Pressable onPress={() => router.navigate("/screens/Register")}>
+              <Text style={{ color: "#4c1dda" }}>{"\t"}Sign up</Text>
+            </Pressable>
           </Text>
         </View>
       </View>

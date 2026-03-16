@@ -2,47 +2,50 @@ package com.aglugan.backend.auth.authDTO;
 
 import com.aglugan.backend.entity.Driver;
 import com.aglugan.backend.entity.User;
+import com.aglugan.backend.auth.authDTO.RegisteredUserDTO;
 
 public class ResultDTO {
 
     private final GoogleUserDTO googleUser;
     private final String errorMessage;
-    private final User user;
-    private final Driver driver;
+    private final RegisteredUserDTO registeredUser; // replaces User + Driver fields
 
-    private ResultDTO(GoogleUserDTO googleUser, String errorMessage, User user, Driver driver) {
+    private ResultDTO(GoogleUserDTO googleUser, String errorMessage, RegisteredUserDTO registeredUser) {
         this.googleUser = googleUser;
         this.errorMessage = errorMessage;
-        this.user = user;
-        this.driver = driver;
+        this.registeredUser = registeredUser;
     }
 
     public static ResultDTO userSuccess(User user) {
-        return new ResultDTO(null, null, user, null);
-    }
-
-    public static ResultDTO errorMessage(String errorMessage) {
-        return new ResultDTO(null, errorMessage, null, null);
-    }
-
-    public static ResultDTO googleUserSuccess(GoogleUserDTO googleUser) {
-        return new ResultDTO(googleUser, null, null, null);
+        RegisteredUserDTO dto = new RegisteredUserDTO(
+                user.getId(), user.getUsername(), user.getName(),
+                user.getEmail(), user.getRole(), user.getProfilePicture(), user.getPhoneNumber()
+        );
+        return new ResultDTO(null, null, dto);
     }
 
     public static ResultDTO driverUserSuccess(Driver driver) {
-        return new ResultDTO(null, null, null, driver);
+        RegisteredUserDTO dto = new RegisteredUserDTO(
+                driver.getId(), driver.getUsername(), driver.getName(),
+                driver.getEmail(), driver.getRole(), driver.getProfilePicture(), driver.getPhoneNumber()
+        );
+        return new ResultDTO(null, null, dto);
     }
 
-    public User getUser() { return user; }
+    public static ResultDTO googleUserSuccess(GoogleUserDTO googleUser) {
+        return new ResultDTO(googleUser, null, null);
+    }
+
+    public static ResultDTO errorMessage(String errorMessage) {
+        return new ResultDTO(null, errorMessage, null);
+    }
+
+    public RegisteredUserDTO getRegisteredUser() { return registeredUser; }
     public GoogleUserDTO getGoogleUser() { return googleUser; }
     public String getErrorMessage() { return errorMessage; }
-    public Driver getDriver() { return driver; }
 
-    public boolean isUserSuccess() {
-        return user != null;
-    }
-    public boolean isGoogleUserSuccess() {
-        return googleUser != null;
-    }
-    public boolean isDriverSuccess() { return driver != null; }
+    // keep these if anything else in your codebase uses them
+    public boolean isUserSuccess() { return registeredUser != null && "USER".equals(registeredUser.getRole()); }
+    public boolean isDriverSuccess() { return registeredUser != null && "DRIVER".equals(registeredUser.getRole()); }
+    public boolean isGoogleUserSuccess() { return googleUser != null; }
 }

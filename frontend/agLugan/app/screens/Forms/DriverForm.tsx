@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ScrollView,
   StyleSheet,
@@ -11,10 +12,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface DriverFormState {
+  tempToken: string;
+  role: string;
   username: string;
   phoneNumber: string;
   driversLicense: string;
-  plateNumber: string;
+  licensePlate: string;
   vehicleNumber: string;
 }
 
@@ -28,11 +31,18 @@ interface FormField {
 }
 
 function DriverForm() {
+  const { data, role } = useLocalSearchParams<{ data: string; role: string }>();
+  const parsedData = data ? JSON.parse(data) : { tempToken: "" };
+
+  const router = useRouter();
+
   const [form, setForm] = useState<DriverFormState>({
+    tempToken: parsedData.tempToken,
+    role: role ?? "",
     username: "",
     phoneNumber: "",
     driversLicense: "",
-    plateNumber: "",
+    licensePlate: "",
     vehicleNumber: "",
   });
 
@@ -40,8 +50,44 @@ function DriverForm() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (): void => {
-    console.log("Driver Form Data:", form);
+  const handleSubmit = async () => {
+    if (
+      !form.username ||
+      !form.driversLicense ||
+      !form.phoneNumber ||
+      !form.licensePlate ||
+      !form.vehicleNumber
+    ) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    const phoneRegex = /^(?:\+63|0)?9\d{9}$/;
+    if (!phoneRegex.test(form.phoneNumber)) {
+      alert("Invalid phone number");
+      return;
+    }
+    try {
+      const url = "http://10.0.2.2:8080/api/auth2/register";
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await response.json();
+      console.log("Driver data: ", data);
+      router.push({
+        pathname: "/screens/HomeScreen",
+        params: { data: JSON.stringify(data.registeredUser) },
+      });
+    } catch (err: any) {
+      alert(err.errorMessage);
+      router.push("/screens/Register");
+      return;
+    }
   };
 
   const fields: FormField[] = [
@@ -70,12 +116,12 @@ function DriverForm() {
       maxLength: 20,
     },
     {
-      key: "plateNumber",
+      key: "licensePlate",
       label: "Plate Number",
       placeholder: "Enter your plate number",
       keyboardType: "default",
       autoCapitalize: "characters",
-      maxLength: 10,
+      maxLength: 7,
     },
     {
       key: "vehicleNumber",

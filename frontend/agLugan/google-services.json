@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "976638134629",
+    "project_id": "aglugan-14fc9",
+    "storage_bucket": "aglugan-14fc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:976638134629:android:44fe1d141564a7d760f98c",
+        "android_client_info": {
+          "package_name": "com.anonymous.aglugan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8PuVyzM5jQl1Q7KXefg4ALuMqxVwrRas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
