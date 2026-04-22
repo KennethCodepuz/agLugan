@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>agLugan — WebSocket Test Console</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #13161e;
+      --surface2:  #1a1e2a;
+      --border:    #262b3a;
+      --accent:    #4f7cff;
+      --accent2:   #7c4fff;
+      --green:     #34d399;
+      --yellow:    #fbbf24;
+      --red:       #f87171;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --driver:    #fb923c;
+      --user:      #4f7cff;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--surface);
+    }
+
+    header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+    header span { font-size: 12px; color: var(--muted); background: var(--surface2); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); }
+
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+    .status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .field input, .field select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus { border-color: var(--accent); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    button {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger  { background: #3b1f1f; color: var(--red); border: 1px solid #5a2a2a; }
+    .btn-driver  { background: linear-gradient(135deg, #c2410c, #ea580c); color: #fff; }
+    .btn-user    { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff; }
+    .btn-stop    { background: #1e2a1e; color: var(--green); border: 1px solid #2a4a2a; }
+    .btn-sm      { width: auto; padding: 6px 12px; font-size: 12px; }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .mode-tab {
+      padding: 8px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .mode-tab.active-driver { border-color: var(--driver); color: var(--driver); background: #1a120a; }
+    .mode-tab.active-user   { border-color: var(--user);   color: var(--user);   background: #0a0f1a; }
+
+    .sim-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .sim-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .sim-dot.running { background: var(--green); animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .eta-display {
+      background: linear-gradient(135deg, #0f1a2e, #1a0f2e);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .eta-display .eta-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .eta-display .eta-value { font-size: 40px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1.1; margin: 6px 0; }
+    .eta-display .eta-sub   { font-size: 12px; color: var(--muted); }
+    .eta-display.paused { border-color: var(--yellow); }
+    .eta-display.paused .eta-value { color: var(--yellow); }
+    .eta-display.paused .eta-label::after { content: ' — PAUSED'; color: var(--yellow); }
+
+    /* Log pane */
+    .log-pane {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .log-header h2 { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-entry {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 3px solid transparent;
+      background: var(--surface2);
+      word-break: break-all;
+      animation: fadeIn 0.15s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .log-entry .ts    { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+    .log-entry .dir   { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .log-entry .msg   { white-space: pre-wrap; line-height: 1.5; }
+
+    .log-entry.sent         { border-color: var(--muted);  }
+    .log-entry.received     { border-color: var(--accent);  }
+    .log-entry.eta          { border-color: var(--accent2); background: #1a0f2e; }
+    .log-entry.zone         { border-color: var(--green);   background: #0a1a12; }
+    .log-entry.offline      { border-color: var(--red);     background: #1a0f0f; }
+    .log-entry.info         { border-color: var(--yellow);  background: #1a160a; }
+    .log-entry.sent .dir    { color: var(--muted); }
+    .log-entry.received .dir{ color: var(--accent); }
+    .log-entry.eta .dir     { color: var(--accent2); }
+    .log-entry.zone .dir    { color: var(--green); }
+    .log-entry.offline .dir { color: var(--red); }
+    .log-entry.info .dir    { color: var(--yellow); }
+
+    .json-key   { color: #7dd3fc; }
+    .json-str   { color: #86efac; }
+    .json-num   { color: #fbbf24; }
+    .json-bool  { color: var(--red); }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .badge-driver { background: #2a160a; color: var(--driver); }
+    .badge-user   { background: #0a142a; color: var(--user);   }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="status-dot" id="statusDot"></div>
+  <h1>agLugan WebSocket Test Console</h1>
+  <span id="statusLabel">Disconnected</span>
+  <span id="sessionLabel" style="display:none; font-family:'JetBrains Mono',monospace; font-size:11px;"></span>
+</header>
+
+<div class="layout">
+  <!-- ── Left Panel ── -->
+  <div class="panel">
+
+    <!-- Connection -->
+    <div class="section">
+      <h2>Connection</h2>
+      <div class="field">
+        <label>WebSocket URL</label>
+        <input id="wsUrl" value="ws://localhost:8080/ws" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-primary" onclick="connect()">Connect</button>
+        <button class="btn-danger"  onclick="disconnect()">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Mode selector -->
+    <div class="section">
+      <h2>Mode</h2>
+      <div class="mode-tabs">
+        <div class="mode-tab active-driver" id="tab-driver" onclick="setMode('DRIVER')">🚐 Driver</div>
+        <div class="mode-tab" id="tab-user"   onclick="setMode('USER')">👤 User</div>
+      </div>
+
+      <!-- DRIVER fields -->
+      <div id="driver-fields">
+        <div class="field">
+          <label>Driver ID (userId field)</label>
+          <input id="driverId" type="number" value="1" />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Start Latitude</label>
+            <input id="driverLat" type="number" step="0.0001" value="10.3157" />
+          </div>
+          <div class="field">
+            <label>Start Longitude</label>
+            <input id="driverLon" type="number" step="0.0001" value="123.8854" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Lat step / ping</label>
+            <input id="latStep" type="number" step="0.0001" value="0.0005" />
+          </div>
+          <div class="field">
+            <label>Lon step / ping</label>
+            <input id="lonStep" type="number" step="0.0001" value="0.0003" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Ping interval (ms)</label>
+          <input id="pingInterval" type="number" value="3000" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn-driver" onclick="startDriver()">▶ Start Driving</button>
+          <button class="btn-stop"   onclick="stopDriver()">⏸ Stop</button>
+        </div>
+        <div class="sim-status">
+          <div class="sim-dot" id="simDot"></div>
+          <span id="simLabel">Not running</span>
+        </div>
+      </div>
+
+      <!-- USER fields -->
+      <div id="user-fields" style="display:none;">
+        <div class="field">
+          <label>User ID</label>
+          <input id="userId" type="number" value="10" />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Latitude (in a zone)</label>
+            <input id="userLat" type="number" step="0.0001" value="10.3157" />
+          </div>
+          <div class="field">
+            <label>Longitude (in a zone)</label>
+            <input id="userLon" type="number" step="0.0001" value="123.8854" />
+          </div>
+        </div>
+        <button class="btn-user" onclick="sendUserPing()">📍 Send Location Ping</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <button class="btn-user" onclick="startUserPing()">▶ Auto Ping (3s)</button>
+          <button class="btn-stop" onclick="stopUserPing()">⏸ Stop</button>
+        </div>
+        <div class="sim-status" style="margin-top:10px;">
+          <div class="sim-dot" id="userSimDot"></div>
+          <span id="userSimLabel">Not running</span>
+        </div>
+
+        <!-- ETA display for user mode -->
+        <div class="eta-display" id="etaDisplay" style="display:none;">
+          <div class="eta-label">Nearest Driver ETA</div>
+          <div class="eta-value" id="etaValue">--</div>
+          <div class="eta-sub" id="etaSub">Waiting for update...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual send -->
+    <div class="section">
+      <h2>Manual Message</h2>
+      <div class="field">
+        <label>Raw JSON</label>
+        <textarea id="manualMsg" rows="4"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;resize:vertical;outline:none;"
+          >{"role":"DRIVER","userId":1,"latitude":10.3157,"longitude":123.8854,"accuracy":5}</textarea>
+      </div>
+      <button class="btn-primary btn-sm" onclick="sendManual()">Send</button>
+    </div>
+
+  </div>
+
+  <!-- ── Log Pane ── -->
+  <div class="log-pane">
+    <div class="log-header">
+      <h2>Message Log</h2>
+      <button class="btn-sm btn-danger" onclick="clearLog()" style="width:auto;">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+  let ws = null;
+  let driverTimer = null;
+  let userTimer = null;
+  let driverLat, driverLon;
+  let etaCountdown = null;
+  let currentEtaSeconds = 0;
+  let isPaused = false;
+  let mode = 'DRIVER';
+
+  // ── Mode ──────────────────────────────────────────────────────────────────
+  function setMode(m) {
+    mode = m;
+    document.getElementById('driver-fields').style.display = m === 'DRIVER' ? 'block' : 'none';
+    document.getElementById('user-fields').style.display   = m === 'USER'   ? 'block' : 'none';
+
+    document.getElementById('tab-driver').className = 'mode-tab' + (m === 'DRIVER' ? ' active-driver' : '');
+    document.getElementById('tab-user').className   = 'mode-tab' + (m === 'USER'   ? ' active-user'   : '');
+
+    const tpl = m === 'DRIVER'
+      ? '{"role":"DRIVER","userId":1,"latitude":10.3157,"longitude":123.8854,"accuracy":5}'
+      : '{"role":"USER","userId":10,"latitude":10.3157,"longitude":123.8854}';
+    document.getElementById('manualMsg').value = tpl;
+  }
+
+  // ── Connection ────────────────────────────────────────────────────────────
+  function connect() {
+    const url = document.getElementById('wsUrl').value.trim();
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      setStatus(true);
+      log('info', 'CONNECTED', `WebSocket opened → ${url}`);
+    };
+
+    ws.onclose = (e) => {
+      setStatus(false);
+      log('info', 'DISCONNECTED', `Code: ${e.code}`);
+      ws = null;
+    };
+
+    ws.onerror = (e) => {
+      log('info', 'ERROR', 'Connection error — is the server running on port 8080?');
+    };
+
+    ws.onmessage = (e) => {
+      handleIncoming(e.data);
+    };
+  }
+
+  function disconnect() {
+    if (ws) { ws.close(); ws = null; }
+    stopDriver();
+    stopUserPing();
+  }
+
+  function setStatus(connected) {
+    const dot   = document.getElementById('statusDot');
+    const label = document.getElementById('statusLabel');
+    dot.className   = 'status-dot' + (connected ? ' connected' : '');
+    label.textContent = connected ? 'Connected' : 'Disconnected';
+  }
+
+  // ── Send helpers ──────────────────────────────────────────────────────────
+  function send(obj) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      log('info', 'NOT CONNECTED', 'Connect first.');
+      return;
+    }
+    const json = JSON.stringify(obj);
+    ws.send(json);
+    log('sent', '↑ SENT', json);
+  }
+
+  function sendManual() {
+    try {
+      const obj = JSON.parse(document.getElementById('manualMsg').value);
+      send(obj);
+    } catch (e) { log('info', 'PARSE ERROR', e.message); }
+  }
+
+  // ── Driver simulation ─────────────────────────────────────────────────────
+  function startDriver() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) { log('info', 'NOT CONNECTED', 'Connect first.'); return; }
+    stopDriver();
+
+    driverLat = parseFloat(document.getElementById('driverLat').value);
+    driverLon = parseFloat(document.getElementById('driverLon').value);
+    const latStep  = parseFloat(document.getElementById('latStep').value);
+    const lonStep  = parseFloat(document.getElementById('lonStep').value);
+    const interval = parseInt(document.getElementById('pingInterval').value);
+    const driverId = parseInt(document.getElementById('driverId').value);
+
+    function ping() {
+      send({ role: 'DRIVER', userId: driverId, latitude: driverLat, longitude: driverLon, accuracy: 5 });
+      driverLat += latStep;
+      driverLon += lonStep;
+      document.getElementById('driverLat').value = driverLat.toFixed(6);
+      document.getElementById('driverLon').value = driverLon.toFixed(6);
+    }
+
+    ping(); // send immediately
+    driverTimer = setInterval(ping, interval);
+    document.getElementById('simDot').className  = 'sim-dot running';
+    document.getElementById('simLabel').textContent = `Pinging every ${interval}ms`;
+  }
+
+  function stopDriver() {
+    if (driverTimer) { clearInterval(driverTimer); driverTimer = null; }
+    document.getElementById('simDot').className  = 'sim-dot';
+    document.getElementById('simLabel').textContent = 'Not running';
+  }
+
+  // ── User simulation ───────────────────────────────────────────────────────
+  function sendUserPing() {
+    const userId = parseInt(document.getElementById('userId').value);
+    const lat    = parseFloat(document.getElementById('userLat').value);
+    const lon    = parseFloat(document.getElementById('userLon').value);
+    send({ role: 'USER', userId, latitude: lat, longitude: lon });
+  }
+
+  function startUserPing() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) { log('info', 'NOT CONNECTED', 'Connect first.'); return; }
+    stopUserPing();
+    sendUserPing();
+    userTimer = setInterval(sendUserPing, 3000);
+    document.getElementById('userSimDot').className  = 'sim-dot running';
+    document.getElementById('userSimLabel').textContent = 'Auto-pinging every 3s';
+  }
+
+  function stopUserPing() {
+    if (userTimer) { clearInterval(userTimer); userTimer = null; }
+    document.getElementById('userSimDot').className  = 'sim-dot';
+    document.getElementById('userSimLabel').textContent = 'Not running';
+  }
+
+  // ── ETA countdown ─────────────────────────────────────────────────────────
+  function startCountdown(seconds, paused) {
+    if (etaCountdown) clearInterval(etaCountdown);
+    currentEtaSeconds = seconds;
+    isPaused = paused;
+    updateEtaDisplay();
+
+    if (!paused) {
+      etaCountdown = setInterval(() => {
+        if (!isPaused && currentEtaSeconds > 0) {
+          currentEtaSeconds--;
+          updateEtaDisplay();
+        }
+      }, 1000);
+    }
+  }
+
+  function updateEtaDisplay() {
+    const display = document.getElementById('etaDisplay');
+    const val     = document.getElementById('etaValue');
+    const sub     = document.getElementById('etaSub');
+
+    display.style.display = 'block';
+    display.className = 'eta-display' + (isPaused ? ' paused' : '');
+
+    const m = Math.floor(currentEtaSeconds / 60);
+    const s = currentEtaSeconds % 60;
+    val.textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+    sub.textContent = isPaused ? 'Driver is stopped' : 'until driver arrives at your zone';
+  }
+
+  // ── Incoming messages ─────────────────────────────────────────────────────
+  function handleIncoming(raw) {
+    let obj;
+    try { obj = JSON.parse(raw); } catch { log('received', '↓ RAW', raw); return; }
+
+    const type = obj.type || '';
+
+    if (type === 'ETA_UPDATE') {
+      const d = obj.data;
+      log('eta', '↓ ETA_UPDATE', raw, `User ${d.userId} ← Driver ${d.driverId}: ${d.etaSeconds}s${d.paused ? ' [PAUSED]' : ''}`);
+      if (mode === 'USER') {
+        const myId = parseInt(document.getElementById('userId').value);
+        if (d.userId === myId) startCountdown(d.etaSeconds, d.paused);
+      }
+      return;
+    }
+
+    if (type === 'ZONE_COUNT') {
+      log('zone', '↓ ZONE_COUNT', raw);
+      return;
+    }
+
+    if (type === 'DRIVER_OFFLINE') {
+      log('offline', '↓ DRIVER_OFFLINE', raw, `Driver ${obj.data} went offline`);
+      if (etaCountdown) { clearInterval(etaCountdown); etaCountdown = null; }
+      const display = document.getElementById('etaDisplay');
+      if (display) display.style.display = 'none';
+      return;
+    }
+
+    // Raw location rebroadcast (from other clients)
+    log('received', '↓ BROADCAST', raw);
+  }
+
+  // ── Log ───────────────────────────────────────────────────────────────────
+  function log(cls, direction, raw, summary) {
+    const el  = document.getElementById('log');
+    const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${cls}`;
+
+    let pretty = raw;
+    try {
+      const obj = JSON.parse(raw);
+      pretty = syntaxHighlight(JSON.stringify(obj, null, 2));
+    } catch {}
+
+    entry.innerHTML = `
+      <div class="ts">${now}</div>
+      <div class="dir">${direction}${summary ? ' — ' + summary : ''}</div>
+      <div class="msg">${pretty}</div>
+    `;
+
+    el.appendChild(entry);
+    el.scrollTop = el.scrollHeight;
+
+    // Keep log from growing unbounded
+    while (el.children.length > 200) el.removeChild(el.firstChild);
+  }
+
+  function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+  function syntaxHighlight(json) {
+    return json
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+        let cls = 'json-num';
+        if (/^"/.test(match)) cls = /:$/.test(match) ? 'json-key' : 'json-str';
+        else if (/true|false/.test(match)) cls = 'json-bool';
+        return `<span class="${cls}">${match}</span>`;
+      });
+  }
+</script>
+</body>
+</html>

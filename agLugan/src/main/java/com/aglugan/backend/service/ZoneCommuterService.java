@@ -2,6 +2,7 @@ package com.aglugan.backend.service;
 
 import com.aglugan.backend.dto.ZoneCountDTO;
 import com.aglugan.backend.entity.Zones;
+import com.aglugan.backend.util.GeoUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -34,7 +35,12 @@ public class ZoneCommuterService {
      * Returns the zone list from cache. Only hits the DB when the cache is
      * empty or older than 5 minutes (double-checked locking for thread safety).
      */
-    private List<Zones> getZones() {
+    /**
+     * Returns the zone list from cache. Only hits the DB when the cache is
+     * empty or older than 5 minutes (double-checked locking for thread safety).
+     * Public so EtaService can access the cached zone list without a DB round-trip.
+     */
+    public List<Zones> getZones() {
         long now = System.currentTimeMillis();
         if (now - lastCacheRefresh.get() > CACHE_TTL_MS || cachedZones.isEmpty()) {
             synchronized (this) {
@@ -46,6 +52,14 @@ public class ZoneCommuterService {
             }
         }
         return cachedZones;
+    }
+
+    /**
+     * Returns a read-only snapshot of the userId → zoneId map.
+     * Used by EtaService to iterate over all online users and their assigned zones.
+     */
+    public Map<Long, Long> getUserZoneMap() {
+        return Collections.unmodifiableMap(userZoneMap);
     }
 
     /**
@@ -128,20 +142,9 @@ public class ZoneCommuterService {
     }
 
     /**
-     * Haversine formula: calculates the great-circle distance in meters
-     * between two GPS coordinates.
+     * Delegates to the shared GeoUtils.haversineDistance utility.
      */
     private double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
-        final double EARTH_RADIUS_METERS = 6_371_000.0;
-
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                        * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return EARTH_RADIUS_METERS * c;
+        return GeoUtils.haversineDistance(lat1, lon1, lat2, lon2);
     }
 }
