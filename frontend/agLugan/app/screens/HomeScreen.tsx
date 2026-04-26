@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useZones, Zone } from "../../hooks/useZones";
 import { useAuth } from "../../context/AuthContext";
 
-const WS_URL = "ws://10.0.2.2:8080/ws";
+const WS_URL = process.env.EXPO_PUBLIC_WS_URL || "ws://10.0.2.2:8080/ws";
 const RECONNECT_DELAY_MS = 3000;
 const LOCATION_SEND_INTERVAL_MS = 3000;
 
@@ -101,6 +101,8 @@ function HomeScreen() {
   const router = useRouter();
 
   const handleLogout = async () => {
+    intentionalClose.current = true;
+    wsRef.current?.close();
     await logout();
     // AuthContext will handle navigation back to login
   };
@@ -112,6 +114,7 @@ function HomeScreen() {
   const sendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestLocation = useRef<Location.LocationObject | null>(null);
   const isMounted = useRef(true);
+  const intentionalClose = useRef(false);
 
   // ─── WebSocket ───────────────────────────────────────────
   const connect = useCallback(() => {
@@ -206,7 +209,7 @@ function HomeScreen() {
                     longitudeDelta: 0,
                     duration,
                     useNativeDriver: false,
-                  })
+                  } as any)
                   .start();
 
                 next.set(uid, {
@@ -236,7 +239,7 @@ function HomeScreen() {
     ws.onerror = () => { };
     ws.onclose = () => {
       if (sendTimer.current) clearInterval(sendTimer.current);
-      if (isMounted.current)
+      if (isMounted.current && !intentionalClose.current)
         reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
     };
   }, [currentUser]);
@@ -259,8 +262,9 @@ function HomeScreen() {
         return;
       }
 
+      const accuracy = currentUser?.role === "DRIVER" ? Location.Accuracy.High : Location.Accuracy.Balanced;
       const subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High },
+        { accuracy },
         (loc) => {
           setLocation(loc);
           latestLocation.current = loc;

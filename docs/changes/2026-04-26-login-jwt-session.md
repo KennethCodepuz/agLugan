@@ -310,3 +310,7 @@ export default function RootLayout() {
 ```
 
 **Explanation & Why:** Wrapped the entire application stack in the `AuthProvider` component, enabling all nested screens to consume real-time identity variables.
+
+## At the end of every documentation, add a summarize feature commit message for git:
+
+    git commit -m 'added docs/changes/2026-04-26-login-jwt-session.md'

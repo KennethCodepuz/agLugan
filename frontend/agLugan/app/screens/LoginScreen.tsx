@@ -16,7 +16,7 @@ function LoginScreen() {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const localUrl = "http://10.0.2.2:8080/api/auth2/login";
+  const localUrl = process.env.EXPO_PUBLIC_API_URL + "/api/auth2/login";
 
   useEffect(() => {
     GoogleSignin.configure({

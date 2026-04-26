@@ -2,7 +2,7 @@
 
 ## PRIMARY RULE: Always Document Code Changes
 
-Every time you modify the codebase, you MUST create a new documentation file inside AILogging directory that records:
+Every time you modify the codebase, you MUST create a new documentation file inside @docs/changes/ directory that records:
 
 1. What feature/change was made
 2. What files were modified
@@ -108,3 +108,7 @@ frontend/components/LoginForm.jsx
 // }
 
 // export default LoginForm;
+
+## At the end of every documentation, add a summarize feature commit message for git:
+
+    git commit -m 'added docs/changes/2026-04-26-login-jwt-session.md'

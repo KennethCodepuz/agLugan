@@ -62,7 +62,7 @@ function UserForm() {
     }
 
     try {
-      const url = "http://10.0.2.2:8080/api/auth2/register";
+      const url = process.env.EXPO_PUBLIC_API_URL + "/api/auth2/register";
       const response = await fetch(url, {
         method: "POST",
         headers: {

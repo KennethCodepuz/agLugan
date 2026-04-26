@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments.length === 0 || (segments[0] === "screens" && (segments[1] === "LoginScreen" || segments[1] === "Register" || segments[1] === "AuthScreen" || segments[1] === "Forms"));
+    const inAuthGroup = (segments as string[]).length === 0 || (segments[0] === "screens" && (segments[1] === "LoginScreen" || segments[1] === "Register" || segments[1] === "AuthScreen" || segments[1] === "Forms"));
 
     if (!user && !inAuthGroup) {
       // Redirect to login if not logged in

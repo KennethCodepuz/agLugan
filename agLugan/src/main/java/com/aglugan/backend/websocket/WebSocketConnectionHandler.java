@@ -69,7 +69,7 @@ public class WebSocketConnectionHandler extends TextWebSocketHandler {
         // ── USER disconnect ──────────────────────────────────────────────────
         Long userId = sessionUserMap.remove(session.getId());
         if (userId != null) {
-            userSessionMap.remove(userId);                          // clean reverse map
+            userSessionMap.remove(userId, session.getId());         // clean reverse map securely
             List<ZoneCountDTO> updatedCounts = zoneCommuterService.removeUser(userId);
             etaService.clearUserEta(userId);                        // clean ETA state
             broadcastZoneCounts(updatedCounts, null);
