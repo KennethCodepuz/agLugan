@@ -53,7 +53,7 @@ public class AuthController {
 
         System.out.println(secondInformation);
 
-        if (!result.isGoogleUserSuccess()) {
+        if (result.getRegisteredUser() == null) {
             return ResponseEntity.status(401).body(result);
         }
 
@@ -69,7 +69,7 @@ public class AuthController {
 
         ResultDTO result = authService.loginUserLogic(token.getIdToken());
 
-        if (!result.isUserSuccess()) {
+        if (result.getRegisteredUser() == null) {
             return ResponseEntity.status(401).body(result);
         }
 

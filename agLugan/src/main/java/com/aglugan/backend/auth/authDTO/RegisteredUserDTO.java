@@ -8,6 +8,7 @@ public class RegisteredUserDTO {
     private final String role;
     private final String profilePicture;
     private final String phoneNumber;
+    private String sessionToken;
 
     public RegisteredUserDTO(Long id, String username, String name, String email,
                              String role, String profilePicture, String phoneNumber) {
@@ -27,4 +28,7 @@ public class RegisteredUserDTO {
     public String getRole() { return role; }
     public String getProfilePicture() { return profilePicture; }
     public String getPhoneNumber() { return phoneNumber; }
+    
+    public String getSessionToken() { return sessionToken; }
+    public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
 }

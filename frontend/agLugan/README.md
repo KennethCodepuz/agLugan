@@ -2,6 +2,15 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Features
+
+- **Live Map Interface**: Displays real-time location of commuters and public utility vehicles (PUVs) using `react-native-maps`.
+- **Real-Time Tracking**: Integrates with a Spring Boot WebSocket backend to update locations of nearby users/drivers.
+- **Zone Occupancy**: Real-time display of commuter counts waiting at specific zones (sheds/terminals).
+- **Dynamic ETA**: Automatically recalculates and displays the ETA of the nearest approaching driver, including pausing when the driver is stopped.
+- **Authentication**: Supports Google OAuth integration for User and Driver registration.
+
+
 ## Get started
 
 1. Install dependencies

@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +18,7 @@ import MapView, {
 } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useZones, Zone } from "../../hooks/useZones";
+import { useAuth } from "../../context/AuthContext";
 
 const WS_URL = "ws://10.0.2.2:8080/ws";
 const RECONNECT_DELAY_MS = 3000;
@@ -34,6 +35,22 @@ interface AnimatedLiveUser extends LiveUser {
   animatedCoordinate: AnimatedRegion;
 }
 
+interface EtaDTO {
+  userId: number;
+  driverId: number;
+  etaSeconds: number;
+  paused: boolean;
+}
+
+interface ZoneCountDTO {
+  zoneId: number;
+  location: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+  commuterCount: number;
+}
+
 // ─── Helpers ──────────────────────────────────────────────
 const getDistanceKm = (
   lat1: number,
@@ -47,8 +64,8 @@ const getDistanceKm = (
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -77,15 +94,16 @@ function HomeScreen() {
     new Map(),
   );
   const [driverETAs, setDriverETAs] = useState<Map<string, number>>(new Map());
-  const { data } = useLocalSearchParams<{ data: string }>();
+  const [zoneCounts, setZoneCounts] = useState<Map<number, number>>(new Map());
+  const [backendEta, setBackendEta] = useState<EtaDTO | null>(null);
 
-  const currentUser = React.useMemo(() => {
-    try {
-      return data ? JSON.parse(data) : null;
-    } catch {
-      return null;
-    }
-  }, [data]);
+  const { user: currentUser, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    // AuthContext will handle navigation back to login
+  };
 
   const { zones } = useZones();
 
@@ -113,6 +131,7 @@ function HomeScreen() {
               longitude: latestLocation.current.coords.longitude,
               role: currentUser?.role ?? "USER",
               id: currentUser?.id?.toString(),
+              userId: currentUser?.id ? Number(currentUser.id) : undefined,
             }),
           );
         }
@@ -121,15 +140,61 @@ function HomeScreen() {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        const updates: LiveUser[] = Array.isArray(data) ? data : [data];
+        const parsed = JSON.parse(event.data);
+
+        if (parsed && typeof parsed === "object" && parsed.type) {
+          if (parsed.type === "ZONE_COUNT") {
+            const counts: ZoneCountDTO[] = parsed.data;
+            setZoneCounts((prev) => {
+              const next = new Map(prev);
+              counts.forEach((c) => next.set(c.zoneId, c.commuterCount));
+              return next;
+            });
+            return;
+          } else if (parsed.type === "ETA_UPDATE") {
+            setBackendEta(parsed.data);
+            return;
+          } else if (parsed.type === "DRIVER_OFFLINE" || parsed.type === "USER_OFFLINE") {
+            const offlineId = parsed.data?.toString();
+            setLiveUsers((prev) => {
+              const next = new Map(prev);
+              for (const [key, user] of next.entries()) {
+                const uId =
+                  (user as any).userId?.toString() || user.id?.toString();
+                if (uId === offlineId) {
+                  next.delete(key);
+                }
+              }
+              return next;
+            });
+            if (parsed.type === "DRIVER_OFFLINE") {
+              setBackendEta((prev) =>
+                prev && prev.driverId?.toString() === offlineId
+                  ? null
+                  : prev,
+              );
+              setDriverETAs((prev) => {
+                const next = new Map(prev);
+                next.delete(offlineId);
+                return next;
+              });
+            }
+            return;
+          }
+        }
+
+        const updates: LiveUser[] = Array.isArray(parsed) ? parsed : [parsed];
 
         setLiveUsers((prev) => {
           const next = new Map(prev);
 
           for (const user of updates) {
-            if (user.id && user.latitude != null && user.longitude != null) {
-              const existing = next.get(user.id);
+            const uid =
+              (user as any).sessionId?.toString() ||
+              user.id?.toString() ||
+              (user as any).userId?.toString();
+            if (uid && user.latitude != null && user.longitude != null) {
+              const existing = next.get(uid);
 
               if (existing) {
                 const duration = user.role === "DRIVER" ? 1000 : 300;
@@ -144,7 +209,7 @@ function HomeScreen() {
                   })
                   .start();
 
-                next.set(user.id, {
+                next.set(uid, {
                   ...existing,
                   latitude: user.latitude,
                   longitude: user.longitude,
@@ -157,7 +222,7 @@ function HomeScreen() {
                   latitudeDelta: 0,
                   longitudeDelta: 0,
                 });
-                next.set(user.id, { ...user, animatedCoordinate });
+                next.set(uid, { ...user, id: uid, animatedCoordinate });
               }
             }
           }
@@ -168,7 +233,7 @@ function HomeScreen() {
       }
     };
 
-    ws.onerror = () => {};
+    ws.onerror = () => { };
     ws.onclose = () => {
       if (sendTimer.current) clearInterval(sendTimer.current);
       if (isMounted.current)
@@ -356,6 +421,13 @@ function HomeScreen() {
                         <Text style={styles.iconText}>
                           {getZoneIcon(zone.classification)}
                         </Text>
+                        {(zoneCounts.get(zone.id) ?? 0) > 0 && (
+                          <View style={styles.badgeContainer}>
+                            <Text style={styles.badgeText}>
+                              {zoneCounts.get(zone.id)}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     )}
                     <View style={styles.markerTip} />
@@ -406,9 +478,15 @@ function HomeScreen() {
         </MapView>
 
         <View style={styles.etaContainer}>
-          {driverETAs.size > 0 ? (
+          {backendEta ? (
             <Text style={styles.etaText}>
-              ETA: {Math.min(...Array.from(driverETAs.values()))} min
+              {backendEta.paused
+                ? "ETA: Driver stopped"
+                : `ETA: ${Math.ceil(backendEta.etaSeconds / 60)} min`}
+            </Text>
+          ) : driverETAs.size > 0 ? (
+            <Text style={styles.etaText}>
+              ETA: {Math.min(...Array.from(driverETAs.values()))} min (est)
             </Text>
           ) : (
             <Text style={styles.etaText}>ETA: Calculating...</Text>
@@ -422,6 +500,13 @@ function HomeScreen() {
           <Text style={styles.toggleButtonText}>
             {showZones ? "Hide Zones" : "Show Zones"}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -454,6 +539,25 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   iconText: { fontSize: 20 },
+  badgeContainer: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#e74c3c",
+    borderRadius: 12,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
   markerTip: {
     marginTop: -1,
     width: 0,
@@ -519,6 +623,18 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   toggleButtonText: { color: "#e8f1f8", fontWeight: "600" },
+
+  logoutButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    backgroundColor: "#e74c3c",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 6,
+  },
+  logoutButtonText: { color: "white", fontWeight: "600" },
 
   etaContainer: {
     position: "absolute",

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -6,11 +6,61 @@ import AppleIcon from "../../assets/icons/appleIconWhite.svg";
 import GoogleIcon from "../../assets/icons/googleIcon.svg";
 
 import { useRouter } from "expo-router";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { useAuth } from "../../context/AuthContext";
 
 // sdk.dir=C:\\Users\\Kenne\\AppData\\Local\\Android\\Sdk
 
 function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const localUrl = "http://10.0.2.2:8080/api/auth2/login";
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        process.env.EXPO_PUBLIC_WEB_CLIENT_ID ||
+        "892629088971-ecur44iv29vjb0vvfe3nv4mermu33tmh.apps.googleusercontent.com",
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+    });
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.signOut();
+      
+      const user = await GoogleSignin.signIn();
+      const idToken = user.data?.idToken;
+
+      const res = await fetch(localUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Login failed. You may need to register first.");
+      }
+
+      const data = await res.json();
+      
+      // Save user to AuthContext (and SecureStore)
+      await login(data);
+      // AuthContext will handle navigation to HomeScreen
+    } catch (err: any) {
+      console.log(err);
+      // Handle error (e.g., show alert)
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -37,7 +87,11 @@ function LoginScreen() {
             </Text>
           </Text>
 
-          <Pressable style={{ width: "100%", alignItems: "center" }}>
+          <Pressable 
+            style={{ width: "100%", alignItems: "center", opacity: loading ? 0.7 : 1 }}
+            onPress={signInWithGoogle}
+            disabled={loading}
+          >
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.googleButton}
@@ -45,7 +99,7 @@ function LoginScreen() {
               end={{ x: 1, y: 1 }}
             >
               <GoogleIcon width={28} height={28} />
-              <Text style={styles.buttonText}>Continue with Google</Text>
+              <Text style={styles.buttonText}>{loading ? "Logging in..." : "Continue with Google"}</Text>
             </LinearGradient>
           </Pressable>
 

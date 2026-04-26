@@ -27,13 +27,28 @@ public class JwtService {
         claims.put("name", googleUser.getName());
         claims.put("googleSub", googleUser.getGoogleSub());
         claims.put("profilePicture", googleUser.getProfilePicture());
-        return createToken(claims, googleUser);
+        return createToken(claims, googleUser.getGoogleSub());
     }
 
-    public String createToken(Map<String, Object> claims, GoogleUserDTO googleUser) {
+    public String generateSessionToken(com.aglugan.backend.auth.authDTO.RegisteredUserDTO user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", user.getEmail());
+        claims.put("role", user.getRole());
+        claims.put("id", user.getId());
+        // Longer expiration for session tokens (e.g. 7 days)
         return Jwts.builder()
                 .claims(claims)
-                .subject(googleUser.getGoogleSub())
+                .subject(user.getId().toString())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 7)) // 7 days
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    public String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .claims(claims)
+                .subject(subject)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 30))
                 .signWith(getSignKey())

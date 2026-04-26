@@ -60,7 +60,9 @@ public class AuthService {
 
                 User newUser = new User(result.getGoogleUser().getGoogleSub(), result.getGoogleUser().getName(), result.getGoogleUser().getEmail(), result.getGoogleUser().getRole() , result.getGoogleUser().getProfilePicture(), secondInformation.getUsername(), secondInformation.getPhoneNumber());
                 userService.createUser(newUser);
-                return ResultDTO.userSuccess(newUser);
+                ResultDTO res = ResultDTO.userSuccess(newUser);
+                res.getRegisteredUser().setSessionToken(jwtService.generateSessionToken(res.getRegisteredUser()));
+                return res;
             }
 
             Optional<Driver> driverGoogleSub = driverService.getDriverByGoogleSub(result.getGoogleUser().getGoogleSub());
@@ -69,7 +71,9 @@ public class AuthService {
             }
             Driver newDriver = new Driver(result.getGoogleUser().getGoogleSub(), result.getGoogleUser().getName(), result.getGoogleUser().getEmail(), result.getGoogleUser().getRole(), result.getGoogleUser().getProfilePicture(), secondInformation.getUsername(), secondInformation.getPhoneNumber(), secondInformation.getVehicleNumber(), secondInformation.getLicensePlate(), secondInformation.getDriversLicense());
             driverService.createDriver(newDriver);
-            return ResultDTO.driverUserSuccess(newDriver);
+            ResultDTO res = ResultDTO.driverUserSuccess(newDriver);
+            res.getRegisteredUser().setSessionToken(jwtService.generateSessionToken(res.getRegisteredUser()));
+            return res;
         }
 
         return ResultDTO.errorMessage("Error: Invalid tempToken");
@@ -80,19 +84,23 @@ public class AuthService {
     public ResultDTO loginUserLogic(String token) {
         ResultDTO user = verifier.verifyGoogleToken(token);
 
-        if(user.isGoogleUserSuccess() || user.getGoogleUser() == null) {
-            if(Objects.equals(user.getRegisteredUser().getRole(), "USER")) {
-                Optional<User> userGoogleSub = userService.getUserByGoogleSub(user.getGoogleUser().getGoogleSub());
-                if(userGoogleSub.isPresent()) {
-                    User userData = userGoogleSub.get();
-                    return ResultDTO.userSuccess(userData);
-                }
+        if(user.isGoogleUserSuccess() && user.getGoogleUser() != null) {
+            String googleSub = user.getGoogleUser().getGoogleSub();
+            
+            Optional<User> userGoogleSub = userService.getUserByGoogleSub(googleSub);
+            if(userGoogleSub.isPresent()) {
+                User userData = userGoogleSub.get();
+                ResultDTO res = ResultDTO.userSuccess(userData);
+                res.getRegisteredUser().setSessionToken(jwtService.generateSessionToken(res.getRegisteredUser()));
+                return res;
             }
 
-            Optional<Driver> userDriver = driverService.getDriverByGoogleSub(user.getGoogleUser().getGoogleSub());
+            Optional<Driver> userDriver = driverService.getDriverByGoogleSub(googleSub);
             if(userDriver.isPresent()) {
                 Driver driverData = userDriver.get();
-                return ResultDTO.driverUserSuccess(driverData);
+                ResultDTO res = ResultDTO.driverUserSuccess(driverData);
+                res.getRegisteredUser().setSessionToken(jwtService.generateSessionToken(res.getRegisteredUser()));
+                return res;
             }
         }
 

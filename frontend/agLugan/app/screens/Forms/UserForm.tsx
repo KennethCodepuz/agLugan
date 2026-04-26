@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
 import {
   StyleSheet,
   Text,
@@ -35,6 +36,7 @@ function UserForm() {
   const parsedData = data ? JSON.parse(data) : { tempToken: "" };
 
   const router = useRouter();
+  const { login } = useAuth();
 
   const [form, setForm] = useState<UserFormState>({
     tempToken: parsedData.tempToken,
@@ -71,10 +73,10 @@ function UserForm() {
 
       const data = await response.json();
       console.log("userdata", data);
-      router.push({
-        pathname: "/screens/HomeScreen",
-        params: { data: JSON.stringify(data.registeredUser) },
-      });
+      
+      // Save user session via AuthContext
+      await login(data);
+      // AuthContext will automatically redirect to HomeScreen
     } catch (err: any) {
       alert(err.errorMessage);
       router.push("/screens/Register");

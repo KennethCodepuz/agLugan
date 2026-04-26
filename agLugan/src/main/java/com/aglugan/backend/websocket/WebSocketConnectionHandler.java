@@ -73,6 +73,8 @@ public class WebSocketConnectionHandler extends TextWebSocketHandler {
             List<ZoneCountDTO> updatedCounts = zoneCommuterService.removeUser(userId);
             etaService.clearUserEta(userId);                        // clean ETA state
             broadcastZoneCounts(updatedCounts, null);
+            broadcastUserOffline(userId);
+            System.out.println("User " + userId + " went offline.");
         }
 
         // ── DRIVER disconnect ────────────────────────────────────────────────
@@ -233,6 +235,32 @@ public class WebSocketConnectionHandler extends TextWebSocketHandler {
             });
         } catch (Exception e) {
             System.err.println("Failed to broadcast DRIVER_OFFLINE for driver " + driverId + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Broadcasts a USER_OFFLINE event to all connected clients when a user disconnects.
+     * Frontend should clear the user's map marker on receipt.
+     *
+     * @param userId the ID of the user that went offline
+     */
+    private void broadcastUserOffline(Long userId) {
+        try {
+            WebSocketDTO<Long> wrapper = new WebSocketDTO<>("USER_OFFLINE", userId);
+            String json = objectMapper.writeValueAsString(wrapper);
+            TextMessage textMessage = new TextMessage(json);
+
+            webSessions.forEach((id, session) -> {
+                if (session.isOpen()) {
+                    try {
+                        session.sendMessage(textMessage);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Failed to broadcast USER_OFFLINE for user " + userId + ": " + e.getMessage());
         }
     }
 }
