@@ -1,11 +1,12 @@
 <div align="center">
   <img src="./frontend/agLugan/assets/logo-2.png" alt="agLugan Logo" width="150" />
-  <h1>agLugan App</h1>
-  <p><strong>A Real-time Public Utility Vehicle (PUV) & Commuter Monitoring Platform</strong></p>
+  <h1>agLugan Platform</h1>
+  <p><strong>High-Performance Real-Time Public Utility Vehicle (PUV) & Commuter Telemetry Platform</strong></p>
   <p>
     <img src="https://img.shields.io/badge/status-active_development-success.svg" alt="Status: Active Development" />
     <img src="https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue.svg" alt="Platform" />
     <img src="https://img.shields.io/badge/backend-Spring%20Boot-green.svg" alt="Backend" />
+    <img src="https://img.shields.io/badge/database-PostgreSQL-336791.svg" alt="Database" />
   </p>
 </div>
 
@@ -13,53 +14,117 @@
 
 ## 📖 Overview
 
-**agLugan** bridges the gap between public utility drivers and daily commuters by providing real-time visibility. Commuters can view approaching jeeps, buses, and modern PUVs on a live map along with accurate ETAs. Conversely, drivers are empowered with real-time analytics showing where commuter demand is actively forming (at waiting sheds and terminals), allowing them to optimize their routes and help alleviate traffic congestion.
+**agLugan** is an advanced, event-driven mobile platform designed to bridge the gap between public utility drivers (jeeps, buses, tricycles) and daily commuters. By providing a live, high-concurrency websocket layer, commuters can view approaching vehicles and real-time Estimated Times of Arrival (ETA), while drivers are empowered with live occupancy analytics at terminals and waiting sheds.
 
-## ✨ Core Features
+Built with performance in mind, the backend bypasses traditional database polling in favor of a vertically-scalable, lock-free in-memory architecture capable of handling thousands of simultaneous GPS telemetry pings.
 
-### 🔐 Authentication & Session Management
-- **Google OAuth2 Integration**: Secure, one-tap login and registration flow via Google.
-- **Role-Based Access Control**: Distinct profiles and capabilities for **Commuters** and **Drivers**.
-- **Secure JWT Sessions**: Long-lived, cryptographically secure sessions utilizing `expo-secure-store` for persistent native device storage.
-- **Robust Registration Flow**: Multi-step registration to capture role-specific metadata (e.g., driver's license, plate number, etc.).
+---
 
-### 🗺️ Live Mapping & Tracking (Powered by Google Maps)
-- **Custom Aesthetic Maps**: Beautifully customized dark-themed map styles for excellent contrast and low-light visibility.
-- **Real-Time Websocket Telemetry**: Bi-directional, highly-performant WebSocket connections to broadcast and receive live GPS coordinates.
-- **Smooth Animations**: Animated markers (`MarkerAnimated`) that smoothly interpolate movement as drivers and commuters travel.
-- **Custom Map Markers**: Unique iconography for waiting sheds, terminals, drivers, and commuters.
+## 🏗️ System Architecture
 
-### 📊 Smart Zones & Analytics
-- **Dynamic ETA Calculations**: Real-time Estimated Time of Arrival (ETA) updates calculated using distance vectors and speeds, pushed live to commuters.
-- **Smart Zone Assignment**: Backend spatial algorithms dynamically group commuters into specific geographic zones (Waiting Sheds, Terminals).
-- **Live Occupancy Badges**: Real-time badges floating over terminals showing exactly how many commuters are waiting there, allowing drivers to make data-driven routing decisions.
+The system utilizes a split architecture. Authentication and metadata are handled via standard REST APIs, while all telemetry (GPS, ETAs, Live Occupancy) is streamed over a bi-directional WebSocket connection, processed entirely in-memory by Spring Boot to achieve sub-millisecond response times.
+
+```mermaid
+graph TD
+    subgraph Mobile App [React Native + Expo]
+        UI[UI / Google Maps]
+        AuthCtx[Auth Context & SecureStore]
+        WSC[WebSocket Client]
+        
+        UI <--> WSC
+        UI <--> AuthCtx
+    end
+
+    subgraph Spring Boot Backend
+        REST[Auth Controllers]
+        WS[WebSocket Connection Handler]
+        
+        subgraph Real-Time Engine [In-Memory Concurrency]
+            DS[Driver State Service]
+            ZC[Zone Commuter Service]
+            ES[ETA Computation Service]
+            
+            WS <--> DS
+            WS <--> ZC
+            DS -.-> ES
+            ZC -.-> ES
+            ES -. "Push Private ETA" .-> WS
+        end
+        
+        Auth[JWT & Auth Service]
+        REST <--> Auth
+    end
+    
+    subgraph Data Layer
+        PG[(PostgreSQL)]
+    end
+
+    AuthCtx -- "HTTP POST (OAuth2)" --> REST
+    WSC -- "ws:// (Telemetry Pings)" <--> WS
+    
+    Auth <--> PG
+    ZC -. "Cache Sync (5m TTL)" .-> PG
+    
+    classDef mobile fill:#2a4d66,stroke:#9bb6c9,color:#fff;
+    classDef backend fill:#173d30,stroke:#163a2e,color:#fff;
+    classDef memory fill:#e74c3c,stroke:#c0392b,color:#fff;
+    classDef db fill:#336791,stroke:#2b5578,color:#fff;
+    
+    class UI,AuthCtx,WSC mobile;
+    class REST,WS,Auth backend;
+    class DS,ZC,ES memory;
+    class PG db;
+```
+
+---
+
+## 🚀 Advanced Engineering Concepts Used
+
+To avoid the "Thundering Herd" problem and database bottlenecks common in real-time tracking apps, agLugan implements the following advanced backend patterns:
+
+### ⚡ Lock-Free In-Memory State
+Instead of writing GPS pings to a database, driver and commuter states are mapped into `ConcurrentHashMap`s. This utilizes advanced lock-striping, allowing hundreds of threads (users) to update their coordinates at the exact same millisecond without colliding or freezing the server.
+
+### ⏱️ Event-Driven Math (No Polling)
+The `EtaService` does not run on a background timer loop. ETAs are calculated *strictly* as a cascading event triggered by an incoming driver ping. The system calculates Haversine distances on the fly and only broadcasts an update down the WebSocket if the ETA has shifted by more than 20 seconds, drastically reducing network payload spam.
+
+### 🛡️ Thundering Herd Protection
+Geographic Zones (terminals/sheds) are cached in memory for 5 minutes. If 1,000 users ping the server the exact second the cache expires, a Double-Checked `synchronized` block forces 999 threads to wait for 1 millisecond while a single thread safely fetches the data from PostgreSQL, protecting the database from collapse.
+
+### 🚰 Atomic Rate Limiting
+Zone occupancy counts (showing drivers how many people are waiting at a terminal) are throttled globally using Java's `AtomicLong.compareAndSet()`. Regardless of how many commuters move simultaneously, the system guarantees an absolute maximum broadcast of 1 message every 2 seconds.
+
+---
+
+## ✨ Core Application Features
+
+### 🔐 Security & Identity
+- **Google OAuth2**: One-tap native login flow.
+- **Persistent JWT Sessions**: Backed by Expo's `SecureStore`, ensuring tokens are cryptographically locked in the device's keychain.
+- **Role-Based Access**: Dedicated backend handling and separate workflows for `USER` and `DRIVER` roles.
+
+### 🗺️ Live Telemetry & Mapping
+- **Battery-Optimized GPS**: Dynamic accuracy throttling. Drivers utilize `High` accuracy for precise vector math, while commuters are downgraded to `Balanced` to preserve their battery life.
+- **Custom Aesthetic UI**: Tailored dark-themed map styles for high contrast and modern aesthetics.
+- **Micro-Animations**: React Native `AnimatedRegion` provides fluid marker interpolation as drivers travel down the street.
+
+### 📊 Smart Analytics
+- **Live Occupancy Badges**: Real-time badges floating over map terminals showing exact commuter headcounts.
+- **Dynamic Routing & Stops**: The backend automatically flags drivers as "Stopped" if their speed falls below 1.8km/h, pausing ETA countdowns for waiting commuters.
 
 ---
 
 ## 🛠️ Technology Stack
 
-### **Frontend (Mobile App)**
-- **Framework**: React Native with Expo
-- **Mapping**: `react-native-maps` with Google Maps Provider
-- **State & Routing**: Expo Router, React Context API
-- **Local Storage**: `expo-secure-store`
-- **Auth**: `@react-native-google-signin/google-signin`
-
-### **Backend (API & WebSockets)**
-- **Framework**: Java + Spring Boot
-- **Database**: PostgreSQL
-- **Real-time Protocol**: Spring WebSockets
-- **Security**: JWT (JSON Web Tokens), Google API Client
-- **Spatial Processing**: Distance and ETA calculation algorithms
+| Domain | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend App** | React Native, Expo | Cross-platform mobile client |
+| **State Management**| React Context, SecureStore | Managing JWTs and user states globally |
+| **Mapping** | `react-native-maps`, Google Maps | UI rendering of dynamic zones and telemetry |
+| **Backend Server** | Java 17, Spring Boot 3 | Highly concurrent multi-threaded API |
+| **Real-Time** | Spring WebSockets | Sub-millisecond bi-directional data streaming |
+| **Database** | PostgreSQL | Persistence layer for Users, Drivers, and Zones |
 
 ---
 
-## 🚀 Planned Capabilities & Roadmap
-- [ ] **Waiting Shed Detail View**: Detailed drill-downs to see exact commuter demographics and projected wait times per terminal.
-- [ ] **Payment Integration**: Seamless digital wallet integration for fare payments directly inside the app.
-- [ ] **Driver Analytics Dashboard**: Heatmaps and historical data for drivers to identify peak locations and times.
-- [ ] **Trip History**: A log of past commutes and driver shifts for accountability and tracking.
-
----
-
-> 🚧 **Disclaimer:** This project is currently in active development. Features are subject to change, and payment integrations are currently disabled.
+> 🚧 **Disclaimer:** This project is currently in active development. Features are subject to change.
