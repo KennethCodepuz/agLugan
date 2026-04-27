@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -52,47 +52,31 @@ interface ZoneCountDTO {
 }
 
 // ─── Helpers ──────────────────────────────────────────────
-const getDistanceKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
+const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const getETA = (
-  fromLat: number,
-  fromLng: number,
-  toLat: number,
-  toLng: number,
-  avgSpeedKmH = 30,
-) => {
+const getETA = (fromLat: number, fromLng: number, toLat: number, toLng: number, avgSpeedKmH = 30) => {
   const distance = getDistanceKm(fromLat, fromLng, toLat, toLng);
-  const etaHours = distance / avgSpeedKmH;
-  return Math.ceil(etaHours * 60);
+  return Math.ceil((distance / avgSpeedKmH) * 60);
 };
 
 function HomeScreen() {
-  const [location, setLocation] = useState<Location.LocationObject | null>(
-    null,
-  );
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [showZones, setShowZones] = useState(true);
+  const [showDrivers, setShowDrivers] = useState(true);
   const [activeMarker, setActiveMarker] = useState<number | null>(null);
-  const [liveUsers, setLiveUsers] = useState<Map<string, AnimatedLiveUser>>(
-    new Map(),
-  );
+  const [liveUsers, setLiveUsers] = useState<Map<string, AnimatedLiveUser>>(new Map());
   const [driverETAs, setDriverETAs] = useState<Map<string, number>>(new Map());
   const [zoneCounts, setZoneCounts] = useState<Map<number, number>>(new Map());
   const [backendEta, setBackendEta] = useState<EtaDTO | null>(null);
@@ -104,7 +88,6 @@ function HomeScreen() {
     intentionalClose.current = true;
     wsRef.current?.close();
     await logout();
-    // AuthContext will handle navigation back to login
   };
 
   const { zones } = useZones();
@@ -125,7 +108,6 @@ function HomeScreen() {
 
     ws.onopen = () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-
       sendTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN && latestLocation.current) {
           ws.send(
@@ -162,19 +144,14 @@ function HomeScreen() {
             setLiveUsers((prev) => {
               const next = new Map(prev);
               for (const [key, user] of next.entries()) {
-                const uId =
-                  (user as any).userId?.toString() || user.id?.toString();
-                if (uId === offlineId) {
-                  next.delete(key);
-                }
+                const uId = (user as any).userId?.toString() || user.id?.toString();
+                if (uId === offlineId) next.delete(key);
               }
               return next;
             });
             if (parsed.type === "DRIVER_OFFLINE") {
               setBackendEta((prev) =>
-                prev && prev.driverId?.toString() === offlineId
-                  ? null
-                  : prev,
+                prev && prev.driverId?.toString() === offlineId ? null : prev,
               );
               setDriverETAs((prev) => {
                 const next = new Map(prev);
@@ -190,7 +167,6 @@ function HomeScreen() {
 
         setLiveUsers((prev) => {
           const next = new Map(prev);
-
           for (const user of updates) {
             const uid =
               (user as any).sessionId?.toString() ||
@@ -198,7 +174,6 @@ function HomeScreen() {
               (user as any).userId?.toString();
             if (uid && user.latitude != null && user.longitude != null) {
               const existing = next.get(uid);
-
               if (existing) {
                 const duration = user.role === "DRIVER" ? 1000 : 300;
                 existing.animatedCoordinate
@@ -211,13 +186,7 @@ function HomeScreen() {
                     useNativeDriver: false,
                   } as any)
                   .start();
-
-                next.set(uid, {
-                  ...existing,
-                  latitude: user.latitude,
-                  longitude: user.longitude,
-                  role: user.role,
-                });
+                next.set(uid, { ...existing, latitude: user.latitude, longitude: user.longitude, role: user.role });
               } else {
                 const animatedCoordinate = new AnimatedRegion({
                   latitude: user.latitude,
@@ -236,7 +205,7 @@ function HomeScreen() {
       }
     };
 
-    ws.onerror = () => { };
+    ws.onerror = () => {};
     ws.onclose = () => {
       if (sendTimer.current) clearInterval(sendTimer.current);
       if (isMounted.current && !intentionalClose.current)
@@ -255,27 +224,31 @@ function HomeScreen() {
         setErrorMsg("Permission to access location was denied");
         return;
       }
-
       const enabled = await Location.hasServicesEnabledAsync();
       if (!enabled) {
         setErrorMsg("Location services are disabled. Please enable GPS.");
         return;
       }
-
-      const accuracy = currentUser?.role === "DRIVER" ? Location.Accuracy.High : Location.Accuracy.Balanced;
-      const subscription = await Location.watchPositionAsync(
-        { accuracy },
-        (loc) => {
-          setLocation(loc);
-          latestLocation.current = loc;
-        },
-      );
-
+      const accuracy =
+        currentUser?.role === "DRIVER" ? Location.Accuracy.High : Location.Accuracy.Balanced;
+      try {
+        let initialLocation = await Location.getLastKnownPositionAsync();
+        if (!initialLocation) initialLocation = await Location.getCurrentPositionAsync({ accuracy });
+        if (initialLocation) {
+          setLocation(initialLocation);
+          latestLocation.current = initialLocation;
+        }
+      } catch (err) {
+        console.warn("Failed to get initial location", err);
+      }
+      const subscription = await Location.watchPositionAsync({ accuracy }, (loc) => {
+        setLocation(loc);
+        latestLocation.current = loc;
+      });
       return subscription;
     }
 
     const subPromise = getCurrentLocation();
-
     return () => {
       isMounted.current = false;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
@@ -293,96 +266,72 @@ function HomeScreen() {
         const updated = new Map(prevETAs);
         liveUsers.forEach((user) => {
           if (user.role === "DRIVER") {
-            const eta = getETA(
-              user.latitude,
-              user.longitude,
-              location.coords.latitude,
-              location.coords.longitude,
-            );
+            const eta = getETA(user.latitude, user.longitude, location.coords.latitude, location.coords.longitude);
             updated.set(user.id, eta);
           }
         });
         return updated;
       });
     }, 3000);
-
     return () => clearInterval(interval);
   }, [liveUsers, location]);
 
-  // ─── Helper for zone icons ───────────────────────────────
   const getZoneIcon = (classification?: string) => {
     switch (classification) {
-      case "Waiting Shed":
-        return "🏠";
-      case "Stop":
-        return "🚏";
-      case "Tricycle Terminal":
-        return "🛺";
-      case "Jeepney Terminal":
-        return "🚐";
-      case "Common":
-        return "📍";
-      case "Uncommon":
-        return "⚠️";
-      default:
-        return "📍";
+      case "Waiting Shed": return "🏠";
+      case "Stop": return "🚏";
+      case "Tricycle Terminal": return "🛺";
+      case "Jeepney Terminal": return "🚐";
+      case "Common": return "📍";
+      case "Uncommon": return "⚠️";
+      default: return "📍";
     }
   };
 
+  // ─── Loading / Error States ──────────────────────────────
   if (errorMsg)
     return (
-      <View style={styles.centered}>
-        <Text>{errorMsg}</Text>
+      <View style={styles.stateCentered}>
+        <View style={styles.stateCard}>
+          <Text style={styles.stateIcon}>⚠️</Text>
+          <Text style={styles.stateTitle}>Location Error</Text>
+          <Text style={styles.stateMessage}>{errorMsg}</Text>
+        </View>
       </View>
     );
+
   if (!location)
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <Text>Getting your location...</Text>
+      <View style={styles.stateCentered}>
+        <View style={styles.stateCard}>
+          <Image source={require("../../assets/logo-2.png")} style={styles.loadingLogo} />
+          <ActivityIndicator size="large" color="#4c1dda" style={{ marginTop: 16 }} />
+          <Text style={styles.stateTitle}>Getting your location...</Text>
+          <Text style={styles.stateMessage}>Please wait a moment</Text>
+        </View>
       </View>
     );
 
   const mapStyle = [
     { elementType: "geometry", stylers: [{ color: "#0f1a24" }] },
-    {
-      featureType: "landscape",
-      elementType: "geometry",
-      stylers: [{ color: "#132534" }],
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#0a1a2b" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#1f3a4d" }],
-    },
-    {
-      featureType: "road.highway",
-      elementType: "geometry",
-      stylers: [{ color: "#2a4d66" }],
-    },
-    {
-      featureType: "poi.park",
-      elementType: "geometry",
-      stylers: [{ color: "#163a2e" }],
-    },
-    {
-      featureType: "landscape.natural",
-      elementType: "geometry",
-      stylers: [{ color: "#173d30" }],
-    },
+    { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#132534" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0a1a2b" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1f3a4d" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2a4d66" }] },
+    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#163a2e" }] },
+    { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#173d30" }] },
     { featureType: "poi", stylers: [{ visibility: "off" }] },
     { elementType: "labels.text.fill", stylers: [{ color: "#9bb6c9" }] },
     { elementType: "labels.text.stroke", stylers: [{ color: "#0f1a24" }] },
   ];
 
+  const avatarInitial = currentUser?.name?.[0]?.toUpperCase() ?? "?";
+  const isDriver = currentUser?.role === "DRIVER";
+
   return (
-    <SafeAreaView style={{ flex: 1, width: "100%" }}>
-      <View style={{ flex: 1, width: "100%" }}>
+    <SafeAreaView style={styles.root} edges={["bottom"]}>
+      {/* ── Map Area ── */}
+      <View style={styles.mapContainer}>
         <MapView
           style={StyleSheet.absoluteFill}
           provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
@@ -396,40 +345,28 @@ function HomeScreen() {
             longitudeDelta: 0.05,
           }}
         >
+          {/* Zone Markers */}
           {showZones &&
             zones
               .filter((z) => z.classification)
               .map((zone) => (
                 <Marker
                   key={zone.id.toString()}
-                  coordinate={{
-                    latitude: zone.latitude,
-                    longitude: zone.longitude,
-                  }}
+                  coordinate={{ latitude: zone.latitude, longitude: zone.longitude }}
                   anchor={{ x: 0.5, y: 1 }}
-                  onPress={() => {
-                    setSelectedZone(zone);
-                    setActiveMarker(zone.id);
-                  }}
+                  onPress={() => { setSelectedZone(zone); setActiveMarker(zone.id); }}
                 >
-                  <View style={styles.markerWrapper}>
+                  <View collapsable={false} style={styles.markerWrapper}>
                     {activeMarker === zone.id ? (
                       <View style={styles.markerRing}>
-                        <Image
-                          source={{ uri: zone.imageurl }}
-                          style={styles.markerImage}
-                        />
+                        <Image source={{ uri: zone.imageurl }} style={styles.markerImage} />
                       </View>
                     ) : (
                       <View style={styles.iconMarker}>
-                        <Text style={styles.iconText}>
-                          {getZoneIcon(zone.classification)}
-                        </Text>
+                        <Text style={styles.iconText}>{getZoneIcon(zone.classification)}</Text>
                         {(zoneCounts.get(zone.id) ?? 0) > 0 && (
                           <View style={styles.badgeContainer}>
-                            <Text style={styles.badgeText}>
-                              {zoneCounts.get(zone.id)}
-                            </Text>
+                            <Text style={styles.badgeText}>{zoneCounts.get(zone.id)}</Text>
                           </View>
                         )}
                       </View>
@@ -439,27 +376,27 @@ function HomeScreen() {
                 </Marker>
               ))}
 
+          {/* Self Marker */}
           <Marker
-            coordinate={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            }}
+            coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            {currentUser?.role === "DRIVER" ? (
-              <View style={styles.driverMarker}>
+            {isDriver ? (
+              <View collapsable={false} style={styles.driverMarker}>
                 <Text style={styles.driverIcon}>🚐</Text>
                 <View style={[styles.driverPulse, styles.selfPulse]} />
               </View>
             ) : (
-              <View style={[styles.liveUserMarker, styles.selfMarker]}>
+              <View collapsable={false} style={[styles.liveUserMarker, styles.selfMarker]}>
                 <Text style={styles.liveUserIcon}>🧑</Text>
               </View>
             )}
           </Marker>
 
+          {/* Other Live Users */}
           {Array.from(liveUsers.values())
             .filter((u) => u.id !== currentUser?.id?.toString())
+            .filter((u) => (u.role === "DRIVER" ? showDrivers : true))
             .map((user) => (
               <MarkerAnimated
                 key={`live-${user.id}`}
@@ -468,12 +405,12 @@ function HomeScreen() {
                 tracksViewChanges={true}
               >
                 {user.role === "DRIVER" ? (
-                  <View style={styles.driverMarker}>
+                  <View collapsable={false} style={styles.driverMarker}>
                     <Text style={styles.driverIcon}>🚐</Text>
                     <View style={styles.driverPulse} />
                   </View>
                 ) : (
-                  <View style={styles.liveUserMarker}>
+                  <View collapsable={false} style={styles.liveUserMarker}>
                     <Text style={styles.liveUserIcon}>🧑</Text>
                   </View>
                 )}
@@ -481,176 +418,276 @@ function HomeScreen() {
             ))}
         </MapView>
 
+        {/* ETA Chip — bottom center */}
         <View style={styles.etaContainer}>
           {backendEta ? (
             <Text style={styles.etaText}>
-              {backendEta.paused
-                ? "ETA: Driver stopped"
-                : `ETA: ${Math.ceil(backendEta.etaSeconds / 60)} min`}
+              {backendEta.paused ? "⏸ Driver stopped" : `🕐 ETA: ${Math.ceil(backendEta.etaSeconds / 60)} min`}
             </Text>
           ) : driverETAs.size > 0 ? (
-            <Text style={styles.etaText}>
-              ETA: {Math.min(...Array.from(driverETAs.values()))} min (est)
-            </Text>
+            <Text style={styles.etaText}>🕐 ETA: ~{Math.min(...Array.from(driverETAs.values()))} min</Text>
           ) : (
-            <Text style={styles.etaText}>ETA: Calculating...</Text>
+            <Text style={styles.etaText}>🕐 Calculating ETA...</Text>
           )}
         </View>
 
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={() => setShowZones((p) => !p)}
-        >
-          <Text style={styles.toggleButtonText}>
-            {showZones ? "Hide Zones" : "Show Zones"}
-          </Text>
-        </TouchableOpacity>
+        {/* FAB Stack — bottom right */}
+        <View style={styles.fabStack}>
+          <TouchableOpacity
+            style={[styles.fab, !showDrivers && styles.fabInactive]}
+            onPress={() => setShowDrivers((p) => !p)}
+          >
+            <Text style={styles.fabIcon}>🚐</Text>
+            <Text style={[styles.fabLabel, !showDrivers && styles.fabLabelInactive]}>
+              {showDrivers ? "Jeeps" : "Hidden"}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.fab, !showZones && styles.fabInactive]}
+            onPress={() => setShowZones((p) => !p)}
+          >
+            <Text style={styles.fabIcon}>📍</Text>
+            <Text style={[styles.fabLabel, !showZones && styles.fabLabelInactive]}>
+              {showZones ? "Zones" : "Hidden"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── Bottom Navigation Bar ── */}
+      <View style={styles.bottomNav}>
+        {/* Profile Section */}
+        <View style={styles.navProfile}>
+          {currentUser?.profilePicture ? (
+            <View style={styles.avatarWrapper}>
+              <Image source={{ uri: currentUser.profilePicture }} style={styles.avatar} />
+            </View>
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+            </View>
+          )}
+          <View style={styles.navUserInfo}>
+            <Text style={styles.navName} numberOfLines={1}>
+              {currentUser?.name ?? currentUser?.username ?? "User"}
+            </Text>
+            <Text style={styles.navRole}>
+              {isDriver ? "🚐 Driver" : "🧑 Commuter"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.navActions}>
+          <TouchableOpacity style={styles.navIconBtn} onPress={() => { /* Settings — no functionality yet */ }}>
+            <Text style={styles.navIconText}>⚙️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Text style={styles.logoutBtnText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+const SURFACE = "#132534";
+const BORDER = "#1f3a4d";
+const TEXT_PRIMARY = "#e8f1f8";
+const TEXT_MUTED = "#9bb6c9";
+const BG = "#0f1a24";
 
-  markerWrapper: { alignItems: "center", width: 64 },
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: BG,
+  },
+
+  // ── Loading / Error ──────────────────────────────────────
+  stateCentered: {
+    flex: 1,
+    backgroundColor: BG,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  stateCard: {
+    backgroundColor: SURFACE,
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    width: "100%",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  stateIcon: { fontSize: 40, marginBottom: 12 },
+  stateTitle: { color: TEXT_PRIMARY, fontSize: 18, fontWeight: "700", marginTop: 8 },
+  stateMessage: { color: TEXT_MUTED, fontSize: 14, marginTop: 4, textAlign: "center" },
+  loadingLogo: { width: 100, height: 100, resizeMode: "contain" },
+
+  // ── Map ──────────────────────────────────────────────────
+  mapContainer: {
+    flex: 1,
+  },
+
+  // ── Zone Markers ─────────────────────────────────────────
+  markerWrapper: { alignItems: "center", width: 36 },
   markerRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 3,
-    borderColor: "#ffffff",
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 2, borderColor: "#ffffff",
     overflow: "hidden",
-    elevation: 8,
   },
   markerImage: { width: "100%", height: "100%" },
   iconMarker: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#1f3a4d",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#ffffff",
-    elevation: 6,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: SURFACE,
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 2, borderColor: "#ffffff",
+    overflow: "hidden",
   },
-  iconText: { fontSize: 20 },
+  iconText: { fontSize: 12 },
   badgeContainer: {
-    position: "absolute",
-    top: -6,
-    right: -6,
+    position: "absolute", top: -4, right: -4,
     backgroundColor: "#e74c3c",
-    borderRadius: 12,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#ffffff",
-    paddingHorizontal: 4,
+    borderRadius: 8, minWidth: 14, height: 14,
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: "#ffffff", paddingHorizontal: 2,
   },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
+  badgeText: { color: "#ffffff", fontSize: 8, fontWeight: "bold" },
   markerTip: {
-    marginTop: -1,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 12,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
+    marginTop: -1, width: 0, height: 0,
+    borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 7,
+    borderLeftColor: "transparent", borderRightColor: "transparent",
     borderTopColor: "#ffffff",
   },
 
+  // ── Live User / Driver Markers ────────────────────────────
   liveUserMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: "#2a4d66",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#9bb6c9",
-    elevation: 6,
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 2, borderColor: TEXT_MUTED,
+    overflow: "hidden",
   },
-  liveUserIcon: { fontSize: 18 },
+  liveUserIcon: { fontSize: 12 },
   selfMarker: {
-    borderColor: "#ffffff",
-    borderWidth: 3,
-    backgroundColor: "#1a6691",
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    borderColor: "#ffffff", borderWidth: 2,
+    backgroundColor: "#1a6691", width: 26, height: 26, borderRadius: 13,
+    overflow: "hidden",
   },
   selfPulse: {
     backgroundColor: "rgba(255,255,255,0.2)",
     borderColor: "rgba(255,255,255,0.7)",
   },
-
-  driverMarker: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  driverIcon: { fontSize: 28, zIndex: 2 },
+  driverMarker: { alignItems: "center", justifyContent: "center", position: "relative" },
+  driverIcon: { fontSize: 18, zIndex: 2 },
   driverPulse: {
-    position: "absolute",
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    position: "absolute", width: 28, height: 28, borderRadius: 14,
     backgroundColor: "rgba(255,200,50,0.25)",
-    borderWidth: 2,
-    borderColor: "rgba(255,200,50,0.6)",
-    zIndex: 1,
+    borderWidth: 2, borderColor: "rgba(255,200,50,0.6)", zIndex: 1,
   },
 
-  toggleButton: {
-    position: "absolute",
-    bottom: 40,
-    right: 20,
-    backgroundColor: "#1f3a4d",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    elevation: 6,
-  },
-  toggleButtonText: { color: "#e8f1f8", fontWeight: "600" },
-
-  logoutButton: {
-    position: "absolute",
-    top: 40,
-    right: 20,
-    backgroundColor: "#e74c3c",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    elevation: 6,
-  },
-  logoutButtonText: { color: "white", fontWeight: "600" },
-
+  // ── ETA Chip ─────────────────────────────────────────────
   etaContainer: {
     position: "absolute",
-    bottom: 100,
-    left: 20,
-    backgroundColor: "rgba(15,26,36,0.85)",
-    paddingHorizontal: 14,
+    bottom: 16,
+    alignSelf: "center",
+    backgroundColor: "rgba(15,26,36,0.90)",
+    paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 12,
-    elevation: 5,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: BORDER,
+    elevation: 8,
   },
-  etaText: { color: "#e8f1f8", fontWeight: "600", fontSize: 16 },
+  etaText: { color: TEXT_PRIMARY, fontWeight: "700", fontSize: 15 },
+
+  // ── FAB Stack ────────────────────────────────────────────
+  fabStack: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    gap: 10,
+    alignItems: "center",
+  },
+  fab: {
+    backgroundColor: SURFACE,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+    elevation: 6,
+    minWidth: 64,
+  },
+  fabInactive: {
+    backgroundColor: "rgba(19,37,52,0.55)",
+    borderColor: "#1f3a4d88",
+  },
+  fabIcon: { fontSize: 20 },
+  fabLabel: { color: TEXT_PRIMARY, fontSize: 11, fontWeight: "600", marginTop: 2 },
+  fabLabelInactive: { color: TEXT_MUTED },
+
+  // ── Bottom Navigation Bar ─────────────────────────────────
+  bottomNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: SURFACE,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 12,
+  },
+  navProfile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  avatarWrapper: {
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 2, borderColor: "#4c1dda",
+    overflow: "hidden",
+  },
+  avatar: {
+    width: "100%", height: "100%",
+  },
+  avatarFallback: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "#2a4d66",
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 2, borderColor: "#4c1dda",
+    overflow: "hidden",
+  },
+  avatarInitial: { color: TEXT_PRIMARY, fontSize: 18, fontWeight: "700" },
+  navUserInfo: { flex: 1 },
+  navName: { color: TEXT_PRIMARY, fontSize: 15, fontWeight: "700" },
+  navRole: { color: TEXT_MUTED, fontSize: 12, marginTop: 1 },
+  navActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  navIconBtn: {
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: BG,
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: BORDER,
+  },
+  navIconText: { fontSize: 18 },
+  logoutBtn: {
+    backgroundColor: "#e74c3c",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  logoutBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 });
 
 export default HomeScreen;
