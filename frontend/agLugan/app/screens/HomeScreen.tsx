@@ -23,6 +23,15 @@ import { useAuth } from "../../context/AuthContext";
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || "ws://10.0.2.2:8080/ws";
 const RECONNECT_DELAY_MS = 3000;
 const LOCATION_SEND_INTERVAL_MS = 3000;
+const PICKUP_THRESHOLD_KM = 0.030; // 30 m — triggers ON_RIDE when driver is this close
+
+type UserStatus = "ONLINE" | "WAITING" | "ON_RIDE";
+
+const STATUS_CONFIG: Record<UserStatus, { color: string; label: string }> = {
+  ONLINE:  { color: "#22c55e", label: "Online" },
+  WAITING: { color: "#eab308", label: "Waiting" },
+  ON_RIDE: { color: "#38bdf8", label: "On Ride" },
+};
 
 interface LiveUser {
   id: string;
@@ -99,6 +108,17 @@ function HomeScreen() {
   const isMounted = useRef(true);
   const intentionalClose = useRef(false);
 
+  // ─── User Status ──────────────────────────────────────────
+  const [userStatus, setUserStatus] = useState<UserStatus>("ONLINE");
+  const userStatusRef = useRef<UserStatus>("ONLINE");
+  /** True after the user manually cancels — suppresses zone auto-transition until they hail again. */
+  const userCancelledRef = useRef(false);
+  /** Always use this helper so the ref stays in sync with state. */
+  const setStatus = (s: UserStatus) => {
+    userStatusRef.current = s;
+    setUserStatus(s);
+  };
+
   // ─── WebSocket ───────────────────────────────────────────
   const connect = useCallback(() => {
     if (!isMounted.current) return;
@@ -109,7 +129,12 @@ function HomeScreen() {
     ws.onopen = () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       sendTimer.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN && latestLocation.current) {
+        // Only broadcast location when the user is actively waiting for a ride
+        if (
+          ws.readyState === WebSocket.OPEN &&
+          latestLocation.current &&
+          userStatusRef.current === "WAITING"
+        ) {
           ws.send(
             JSON.stringify({
               latitude: latestLocation.current.coords.latitude,
@@ -117,6 +142,7 @@ function HomeScreen() {
               role: currentUser?.role ?? "USER",
               id: currentUser?.id?.toString(),
               userId: currentUser?.id ? Number(currentUser.id) : undefined,
+              status: "WAITING",
             }),
           );
         }
@@ -276,6 +302,34 @@ function HomeScreen() {
     return () => clearInterval(interval);
   }, [liveUsers, location]);
 
+  // ─── Auto: ONLINE → WAITING on zone entry ────────────────
+  useEffect(() => {
+    // Skip if user manually cancelled — their explicit action takes priority
+    if (!location || userStatus !== "ONLINE" || zones.length === 0 || currentUser?.role === "DRIVER" || userCancelledRef.current) return;
+    const { latitude: uLat, longitude: uLng } = location.coords;
+    for (const zone of zones) {
+      const distKm = getDistanceKm(uLat, uLng, zone.latitude, zone.longitude);
+      if (distKm <= (zone.radius ?? 200) / 1000) {
+        setStatus("WAITING");
+        break;
+      }
+    }
+  }, [location, zones, userStatus]);
+
+  // ─── Auto: WAITING → ON_RIDE when driver is ≤30 m ────────
+  useEffect(() => {
+    if (!location || userStatus !== "WAITING") return;
+    const { latitude: uLat, longitude: uLng } = location.coords;
+    for (const [, u] of liveUsers) {
+      if (u.role === "DRIVER") {
+        if (getDistanceKm(uLat, uLng, u.latitude, u.longitude) <= PICKUP_THRESHOLD_KM) {
+          setStatus("ON_RIDE");
+          break;
+        }
+      }
+    }
+  }, [liveUsers, location, userStatus]);
+
   const getZoneIcon = (classification?: string) => {
     switch (classification) {
       case "Waiting Shed": return "🏠";
@@ -354,6 +408,7 @@ function HomeScreen() {
                   key={zone.id.toString()}
                   coordinate={{ latitude: zone.latitude, longitude: zone.longitude }}
                   anchor={{ x: 0.5, y: 1 }}
+                  tracksViewChanges={true}
                   onPress={() => { setSelectedZone(zone); setActiveMarker(zone.id); }}
                 >
                   <View collapsable={false} style={styles.markerWrapper}>
@@ -364,11 +419,12 @@ function HomeScreen() {
                     ) : (
                       <View style={styles.iconMarker}>
                         <Text style={styles.iconText}>{getZoneIcon(zone.classification)}</Text>
-                        {(zoneCounts.get(zone.id) ?? 0) > 0 && (
-                          <View style={styles.badgeContainer}>
-                            <Text style={styles.badgeText}>{zoneCounts.get(zone.id)}</Text>
-                          </View>
-                        )}
+                      </View>
+                    )}
+                    {/* Badge rendered OUTSIDE iconMarker so overflow:hidden doesn't clip it */}
+                    {(zoneCounts.get(zone.id) ?? 0) > 0 && (
+                      <View style={styles.badgeContainer}>
+                        <Text style={styles.badgeText}>{zoneCounts.get(zone.id)}</Text>
                       </View>
                     )}
                     <View style={styles.markerTip} />
@@ -457,7 +513,7 @@ function HomeScreen() {
 
       {/* ── Bottom Navigation Bar ── */}
       <View style={styles.bottomNav}>
-        {/* Profile Section */}
+        {/* Profile + Status */}
         <View style={styles.navProfile}>
           {currentUser?.profilePicture ? (
             <View style={styles.avatarWrapper}>
@@ -472,17 +528,45 @@ function HomeScreen() {
             <Text style={styles.navName} numberOfLines={1}>
               {currentUser?.name ?? currentUser?.username ?? "User"}
             </Text>
-            <Text style={styles.navRole}>
-              {isDriver ? "🚐 Driver" : "🧑 Commuter"}
-            </Text>
+            <View style={styles.navRoleRow}>
+              <Text style={styles.navRole}>
+                {isDriver ? "🚐 Driver" : "🧑 Commuter"}
+              </Text>
+              {!isDriver && (
+                <View style={[styles.statusBadge, { borderColor: STATUS_CONFIG[userStatus].color }]}>
+                  <View style={[styles.statusDot, { backgroundColor: STATUS_CONFIG[userStatus].color }]} />
+                  <Text style={[styles.statusBadgeText, { color: STATUS_CONFIG[userStatus].color }]}>
+                    {STATUS_CONFIG[userStatus].label}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.navActions}>
-          <TouchableOpacity style={styles.navIconBtn} onPress={() => { /* Settings — no functionality yet */ }}>
-            <Text style={styles.navIconText}>⚙️</Text>
-          </TouchableOpacity>
+          {!isDriver && (
+            <TouchableOpacity
+              style={[
+                styles.statusActionBtn,
+                userStatus === "ONLINE"  && styles.statusBtnHail,
+                userStatus === "WAITING" && styles.statusBtnCancel,
+                userStatus === "ON_RIDE" && styles.statusBtnExit,
+              ]}
+              onPress={() => {
+                if (userStatus === "ONLINE")  { userCancelledRef.current = false; setStatus("WAITING"); }
+                if (userStatus === "WAITING") { userCancelledRef.current = true;  setStatus("ONLINE");  }
+                if (userStatus === "ON_RIDE") { userCancelledRef.current = false; setStatus("ONLINE");  }
+              }}
+            >
+              <Text style={styles.statusActionText}>
+                {userStatus === "ONLINE"  ? "Hail Ride" : null}
+                {userStatus === "WAITING" ? "Cancel"    : null}
+                {userStatus === "ON_RIDE" ? "Exit Ride" : null}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutBtnText}>Logout</Text>
           </TouchableOpacity>
@@ -544,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
     justifyContent: "center", alignItems: "center",
     borderWidth: 2, borderColor: "#ffffff",
-    overflow: "hidden",
+    // overflow:hidden removed — it was clipping the absolutely-positioned badge
   },
   iconText: { fontSize: 12 },
   badgeContainer: {
@@ -553,6 +637,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, minWidth: 14, height: 14,
     justifyContent: "center", alignItems: "center",
     borderWidth: 1, borderColor: "#ffffff", paddingHorizontal: 2,
+    zIndex: 10,
   },
   badgeText: { color: "#ffffff", fontSize: 8, fontWeight: "bold" },
   markerTip: {
@@ -642,6 +727,46 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     elevation: 12,
   },
+
+  // ── Status Badge ─────────────────────────────────────────
+  navRoleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 1,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  // ── Status Action Button ──────────────────────────────────
+  statusActionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    elevation: 2,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  statusBtnHail:   { backgroundColor: "#4c1dda" },
+  statusBtnCancel: { backgroundColor: "#78350f" },
+  statusBtnExit:   { backgroundColor: "#0c4a6e" },
+  statusActionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   navProfile: {
     flexDirection: "row",
     alignItems: "center",

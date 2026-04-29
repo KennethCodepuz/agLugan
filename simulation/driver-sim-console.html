@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>agLugan — Driver Route Simulator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0f14;--surface:#13161e;--surface2:#1a1e2a;--border:#262b3a;
+      --accent:#4f7cff;--accent2:#7c4fff;--green:#34d399;--yellow:#fbbf24;
+      --red:#f87171;--text:#e2e8f0;--muted:#64748b;--driver:#fb923c;
+    }
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+    header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:var(--surface);}
+    header h1{font-size:17px;font-weight:600;letter-spacing:-.3px;}
+    .pill{font-size:11px;color:var(--muted);background:var(--surface2);padding:3px 10px;border-radius:20px;border:1px solid var(--border);}
+    .status-dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);transition:all .3s;flex-shrink:0;}
+    .status-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green);}
+    .layout{display:grid;grid-template-columns:360px 1fr;flex:1;overflow:hidden;}
+    .panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+    .section{padding:18px;border-bottom:1px solid var(--border);}
+    .section h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;}
+    .field{margin-bottom:10px;}
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500;}
+    .field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s;}
+    .field input:focus,.field select:focus{border-color:var(--accent);}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);margin-bottom:10px;}
+    .toggle-row span{font-size:12px;color:var(--text);font-weight:500;}
+    .toggle{position:relative;width:38px;height:21px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .slider-toggle{position:absolute;inset:0;background:#333;border-radius:21px;cursor:pointer;transition:.3s;}
+    .slider-toggle:before{content:'';position:absolute;width:15px;height:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+    input:checked+.slider-toggle{background:var(--accent);}
+    input:checked+.slider-toggle:before{transform:translateX(17px);}
+    button{width:100%;padding:9px 14px;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+    button:hover{filter:brightness(1.1);transform:translateY(-1px);}
+    button:active{transform:translateY(0);}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-danger{background:#3b1f1f;color:var(--red);border:1px solid #5a2a2a;}
+    .btn-driver{background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;}
+    .btn-stop{background:#1e2a1e;color:var(--green);border:1px solid #2a4a2a;}
+    .btn-sm{width:auto;padding:5px 11px;font-size:12px;}
+    .speed-val{font-size:20px;font-weight:700;color:var(--driver);text-align:center;font-family:'JetBrains Mono',monospace;margin:2px 0 6px;}
+    input[type=range]{width:100%;accent-color:var(--driver);cursor:pointer;}
+    .driver-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;}
+    .driver-card.active{border-color:var(--driver);}
+    .dc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+    .dc-id{font-size:14px;font-weight:700;color:var(--driver);}
+    .dc-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#2a160a;color:var(--driver);}
+    .dc-info{font-size:11px;color:var(--muted);line-height:1.9;font-family:'JetBrains Mono',monospace;}
+    .dc-path{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:4px;}
+    .path-a{background:#0a1a2a;color:var(--accent);}
+    .path-b{background:#1a0f2e;color:var(--accent2);}
+    .sim-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px;}
+    .sim-dot.running{background:var(--green);animation:pulse 1.5s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+    .no-drivers{text-align:center;color:var(--muted);font-size:12px;padding:20px 0;}
+    .log-pane{display:flex;flex-direction:column;overflow:hidden;}
+    .log-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .log-header h2{font-size:13px;font-weight:600;}
+    #log{flex:1;overflow-y:auto;padding:10px;font-family:'JetBrains Mono',monospace;font-size:12px;display:flex;flex-direction:column;gap:4px;}
+    .le{padding:7px 11px;border-radius:6px;border-left:3px solid transparent;background:var(--surface2);word-break:break-all;animation:fi .15s ease;}
+    @keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
+    .le .ts{color:var(--muted);font-size:10px;margin-bottom:2px;}
+    .le .dir{font-size:10px;font-weight:700;letter-spacing:.5px;margin-bottom:2px;}
+    .le .msg{white-space:pre-wrap;line-height:1.5;}
+    .le.sent{border-color:var(--driver);}.le.sent .dir{color:var(--driver);}
+    .le.recv{border-color:var(--accent);}.le.recv .dir{color:var(--accent);}
+    .le.info{border-color:var(--yellow);background:#1a160a;}.le.info .dir{color:var(--yellow);}
+    .le.ev{border-color:var(--accent2);background:#1a0f2e;}.le.ev .dir{color:var(--accent2);}
+    .jk{color:#7dd3fc}.js{color:#86efac}.jn{color:#fbbf24}.jb{color:var(--red)}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="status-dot" id="statusDot"></div>
+  <h1>agLugan — Driver Route Simulator</h1>
+  <span id="statusLabel" class="pill">Disconnected</span>
+  <span class="pill">Laoag City Route · 31 shared + intersection</span>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+
+    <!-- Connection -->
+    <div class="section">
+      <h2>Connection</h2>
+      <div class="field">
+        <label>WebSocket URL</label>
+        <input id="wsUrl" value="ws://localhost:8080/ws"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-primary" onclick="connect()">Connect</button>
+        <button class="btn-danger"  onclick="disconnect()">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Add Driver -->
+    <div class="section">
+      <h2>Add Driver</h2>
+
+      <div class="field">
+        <label>Driver ID (userId sent to backend)</label>
+        <input id="driverId" type="number" value="1"/>
+      </div>
+
+      <!-- Randomize Start toggle -->
+      <div class="toggle-row">
+        <span>🎲 Randomize starting point</span>
+        <label class="toggle">
+          <input type="checkbox" id="randomStart" onchange="onToggleRandom()"/>
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+
+      <!-- Manual start picker (hidden when random is on) -->
+      <div id="startField" class="field">
+        <label>Starting Waypoint</label>
+        <select id="startPoint"></select>
+      </div>
+
+      <!-- Speed -->
+      <div class="field">
+        <label>Simulation Speed</label>
+        <div class="speed-val" id="speedVal">40 km/h</div>
+        <input type="range" id="speedSlider" min="10" max="120" value="40" oninput="onSpeed()"/>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px;">
+          <span>Slow (10)</span><span>Fast (120)</span>
+        </div>
+      </div>
+
+      <!-- Smoothness: how many sub-points to insert between each waypoint pair -->
+      <div class="field">
+        <label>Smoothness (steps between waypoints)</label>
+        <input id="interpSteps" type="number" min="5" max="100" value="20"/>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Higher = smoother movement, more pings sent · Default: 20</div>
+      </div>
+
+      <button class="btn-driver" onclick="addDriver()" style="margin-top:4px;">🚐 Add Driver &amp; Start</button>
+    </div>
+
+    <!-- Active Drivers -->
+    <div class="section" style="flex:1;">
+      <h2>Active Drivers</h2>
+      <div id="driverList"><div class="no-drivers">No drivers running.<br/>Add one above.</div></div>
+      <div style="margin-top:10px;">
+        <button class="btn-stop" onclick="stopAll()">⏹ Stop All</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LOG PANE -->
+  <div class="log-pane">
+    <div class="log-header">
+      <h2>Message Log</h2>
+      <button class="btn-sm btn-danger" onclick="document.getElementById('log').innerHTML=''">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+// ── Route Data ────────────────────────────────────────────────────────────────
+// Parsed from simulation/routes.txt
+const SHARED = [
+  [18.196042, 120.592657],
+  [18.186452, 120.588690],
+  [18.176170, 120.591207],
+  [18.174549, 120.594099],
+  [18.173977, 120.594400],
+  [18.173246, 120.594342],
+  [18.170086, 120.592386],
+  [18.165850, 120.590671],
+  [18.160041, 120.588291],
+  [18.152831, 120.585417],
+  [18.150538, 120.584521],
+  [18.149031, 120.584187],
+  [18.146805, 120.583040],
+  [18.137774, 120.584606],
+  [18.135080, 120.582893],
+  [18.133102, 120.582132],
+  [18.125211, 120.577432],
+  [18.120571, 120.575544],
+  [18.116822, 120.573042],
+  [18.108216, 120.568912],
+  [18.106839, 120.568375],
+  [18.103861, 120.569598],
+  [18.102790, 120.571476],
+  [18.102036, 120.571969],
+  [18.093755, 120.569548],
+  [18.088900, 120.568161],
+  [18.086932, 120.567506],
+  [18.079324, 120.563022],
+  [18.078640, 120.562968],
+  [18.075876, 120.564395],
+  [18.072470, 120.562517],
+];
+
+// Path A — intersection way 1 (points 32-38)
+const PATH_A = [
+  [18.068085, 120.561199],
+  [18.059634, 120.558645],
+  [18.055662, 120.557363],
+  [18.061747, 120.522699],
+  [18.060292, 120.521870],
+  [18.060631, 120.520599],
+  [18.059229, 120.519744], // final destination
+];
+
+// Path B — intersection way 2 (points 32-44)
+const PATH_B = [
+  [18.067349, 120.561429],
+  [18.062878, 120.565433],
+  [18.061150, 120.565958],
+  [18.061150, 120.565958],
+  [18.058465, 120.566151],
+  [18.056407, 120.564971],
+  [18.057587, 120.563069],
+  [18.055074, 120.561479],
+  [18.055662, 120.557363],
+  [18.061747, 120.522699],
+  [18.060292, 120.521870],
+  [18.060631, 120.520599],
+  [18.059229, 120.519744], // final destination
+];
+
+// ── App State ─────────────────────────────────────────────────────────────────
+let ws = null;
+const drivers = {}; // driverId -> { timer, wpIndex, route, path, startIdx, speed, ws }
+
+// ── Init: populate start point dropdown ───────────────────────────────────────
+(function() {
+  const sel = document.getElementById('startPoint');
+  SHARED.forEach(([lat, lng], i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `Point ${i+1}  (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+    sel.appendChild(o);
+  });
+})();
+
+function onToggleRandom() {
+  document.getElementById('startField').style.display =
+    document.getElementById('randomStart').checked ? 'none' : 'block';
+}
+
+function onSpeed() {
+  const v = document.getElementById('speedSlider').value;
+  document.getElementById('speedVal').textContent = v + ' km/h';
+}
+
+// speed (km/h) → ping interval (ms): 60000/speed gives nice range
+function speedToInterval(kmh) {
+  return Math.round(60000 / kmh);
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connect() {
+  const url = document.getElementById('wsUrl').value.trim();
+  ws = new WebSocket(url);
+  ws.onopen  = () => { setConnected(true);  log('info','CONNECTED', 'WebSocket opened → ' + url); };
+  ws.onclose = e => { setConnected(false); log('info','DISCONNECTED', 'Code: ' + e.code); ws = null; };
+  ws.onerror = () => log('info','ERROR','Connection error. Is Spring Boot running on port 8080?');
+  ws.onmessage = e => handleIncoming(e.data);
+}
+
+function disconnect() {
+  stopAll();
+  if (ws) { ws.close(); ws = null; }
+}
+
+function setConnected(ok) {
+  document.getElementById('statusDot').className   = 'status-dot' + (ok ? ' connected' : '');
+  document.getElementById('statusLabel').textContent = ok ? 'Connected' : 'Disconnected';
+}
+
+// ── Add / Stop Drivers ────────────────────────────────────────────────────────
+function addDriver() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    log('info','NOT CONNECTED','Connect to WebSocket first.'); return;
+  }
+  const id = parseInt(document.getElementById('driverId').value);
+  if (drivers[id]) { log('info','DUPLICATE','Driver ' + id + ' is already running.'); return; }
+
+  const isRandom = document.getElementById('randomStart').checked;
+  const startIdx = isRandom
+    ? Math.floor(Math.random() * SHARED.length)
+    : parseInt(document.getElementById('startPoint').value);
+
+  const speedKmh  = parseInt(document.getElementById('speedSlider').value);
+  const steps      = parseInt(document.getElementById('interpSteps').value) || 20;
+  const path       = Math.random() < 0.5 ? 'A' : 'B';
+  const route      = buildRoute(startIdx, path);
+  const interp     = interpolateRoute(route, steps);
+
+  drivers[id] = { timer: null, subIdx: 0, route, interp, path, startIdx, speedKmh, steps, totalWp: route.length };
+
+  renderCard(id);
+  log('ev', '🚐 DRIVER ADDED',
+    JSON.stringify({ driverId: id, startPoint: startIdx + 1, speedKmh, firstPath: path }));
+
+  runDriver(id);
+
+  // Auto-increment driver ID for convenience
+  document.getElementById('driverId').value = id + 1;
+}
+
+function buildRoute(startIdx, path) {
+  return [...SHARED.slice(startIdx), ...(path === 'A' ? PATH_A : PATH_B)];
+}
+
+// Linear interpolation: generates `steps` sub-points between each consecutive waypoint pair.
+// This makes the marker glide smoothly rather than jump.
+function interpolateRoute(route, steps) {
+  const pts = [];
+  for (let i = 0; i < route.length - 1; i++) {
+    const [lat1, lng1] = route[i];
+    const [lat2, lng2] = route[i + 1];
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      pts.push([lat1 + (lat2 - lat1) * t, lng1 + (lng2 - lng1) * t]);
+    }
+  }
+  pts.push(route[route.length - 1]); // include final destination
+  return pts;
+}
+
+// Speed (km/h) → interval between each sub-ping (ms).
+// Higher speed = shorter interval = faster movement.
+function speedToInterval(kmh) {
+  return Math.max(100, Math.round(30000 / kmh));
+}
+
+function runDriver(id) {
+  const d = drivers[id];
+  if (!d) return;
+
+  function tick() {
+    if (!drivers[id]) return;
+    const d = drivers[id];
+
+    // End of interpolated route → loop with new random intersection
+    if (d.subIdx >= d.interp.length) {
+      d.path   = Math.random() < 0.5 ? 'A' : 'B';
+      d.route  = buildRoute(d.startIdx, d.path);
+      d.interp = interpolateRoute(d.route, d.steps);
+      d.subIdx = 0;
+      log('ev', '🔀 LOOP', 'Driver ' + id + ' restarting → Path ' + d.path);
+      updateCard(id);
+    }
+
+    const [lat, lng] = d.interp[d.subIdx];
+    d.subIdx++;
+
+    // Send exact format the backend and frontend expect
+    const payload = { role: 'DRIVER', userId: id, latitude: lat, longitude: lng, accuracy: 5 };
+
+    // Only log every 5th sub-ping to avoid flooding the log panel
+    if (d.subIdx % 5 === 0) {
+      sendPing(payload, 'Driver ' + id + ' · step ' + d.subIdx + '/' + d.interp.length);
+    } else {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
+    }
+
+    updateCard(id);
+    d.timer = setTimeout(tick, speedToInterval(d.speedKmh));
+  }
+
+  tick();
+}
+
+function stopDriver(id) {
+  const d = drivers[id];
+  if (!d) return;
+  clearTimeout(d.timer);
+  delete drivers[id];
+  const card = document.getElementById('dc-' + id);
+  if (card) card.remove();
+  const list = document.getElementById('driverList');
+  if (!list.querySelector('.driver-card'))
+    list.innerHTML = '<div class="no-drivers">No drivers running.<br/>Add one above.</div>';
+  log('ev','⏹ STOPPED','Driver ' + id + ' removed');
+}
+
+function stopAll() {
+  Object.keys(drivers).forEach(id => stopDriver(parseInt(id)));
+}
+
+// ── WebSocket Send ────────────────────────────────────────────────────────────
+function sendPing(obj, note) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const json = JSON.stringify(obj);
+  ws.send(json);
+  log('sent', '↑ ' + (note || 'SENT'), json);
+}
+
+// ── Incoming messages ─────────────────────────────────────────────────────────
+function handleIncoming(raw) {
+  let obj; try { obj = JSON.parse(raw); } catch { log('recv','↓ RAW', raw); return; }
+  const t = obj.type || '';
+  if (t === 'ZONE_COUNT')     { log('recv','↓ ZONE_COUNT', raw); return; }
+  if (t === 'ETA_UPDATE')     { log('recv','↓ ETA_UPDATE', raw); return; }
+  if (t === 'DRIVER_OFFLINE') { log('info','↓ DRIVER_OFFLINE', raw); return; }
+  if (t === 'USER_OFFLINE')   { log('info','↓ USER_OFFLINE', raw); return; }
+  log('recv','↓ BROADCAST', raw);
+}
+
+// ── Driver Cards ──────────────────────────────────────────────────────────────
+function renderCard(id) {
+  const list = document.getElementById('driverList');
+  const empty = list.querySelector('.no-drivers');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.id = 'dc-' + id;
+  div.className = 'driver-card active';
+  div.innerHTML = cardHTML(id);
+  list.appendChild(div);
+}
+
+function updateCard(id) {
+  const el = document.getElementById('dc-' + id);
+  if (el) el.innerHTML = cardHTML(id);
+}
+
+function cardHTML(id) {
+  const d = drivers[id];
+  if (!d) return '';
+  const [lat, lng] = d.interp[Math.min(d.subIdx, d.interp.length - 1)];
+  const wpNum = Math.min(Math.floor(d.subIdx / d.steps) + 1, d.totalWp);
+  const pct   = Math.round((d.subIdx / d.interp.length) * 100);
+  return `
+    <div class="dc-top">
+      <span class="dc-id">Driver #${id}</span>
+      <span class="dc-status"><span class="sim-dot running"></span>Running</span>
+    </div>
+    <div class="dc-info">
+      Lat: ${lat.toFixed(6)}<br/>
+      Lng: ${lng.toFixed(6)}<br/>
+      Waypoint: ${wpNum}/${d.totalWp} &nbsp;|&nbsp; ${d.speedKmh} km/h<br/>
+      Progress: ${pct}% &nbsp;(${d.subIdx}/${d.interp.length} steps)
+    </div>
+    <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;">
+      <span class="dc-path ${d.path === 'A' ? 'path-a' : 'path-b'}">Path ${d.path}</span>
+      <button class="btn-sm btn-danger" onclick="stopDriver(${id})">Stop</button>
+    </div>`;
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function log(cls, dir, raw) {
+  const el  = document.getElementById('log');
+  const now = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const div = document.createElement('div');
+  div.className = 'le ' + cls;
+  let pretty = raw;
+  try { pretty = syntaxHL(JSON.stringify(JSON.parse(raw), null, 2)); } catch {}
+  div.innerHTML = `<div class="ts">${now}</div><div class="dir">${dir}</div><div class="msg">${pretty}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 300) el.removeChild(el.firstChild);
+}
+
+function syntaxHL(json) {
+  return json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(\"(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*\"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      let c = 'jn';
+      if (/^"/.test(m)) c = /:$/.test(m) ? 'jk' : 'js';
+      else if (/true|false/.test(m)) c = 'jb';
+      return `<span class="${c}">${m}</span>`;
+    });
+}
+</script>
+</body>
+</html>

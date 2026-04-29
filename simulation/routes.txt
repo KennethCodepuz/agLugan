@@ -1,0 +1,165 @@
+Route List
+
+
+Starting point
+LAT                      LONG
+18.196042 - 120. 592657
+
+2nd point
+18.186452 - 120-588690
+
+3rd point
+18.176170-120.591207
+
+4th point
+18.174549-120.594099
+
+5th point
+18.173977-120.594400
+
+6th point
+18.173246-120.594342
+
+7th point
+18.170086-120.592386
+
+8th point
+18.165850-120.590671
+
+9th point
+18.160041-120.588291
+
+10th point
+18.152831-120.585417
+
+11th point
+18.150538-120.584521
+
+12th point
+18.149031-120.584187
+
+13th point
+18.146805-120.583040
+
+14th point
+18.137774-120.584606
+
+15th point
+18.135080-120.582893
+
+16th point
+18.133102-120.582132
+
+17th point
+18.125211-120.577432
+
+18th point
+18.120571-120.575544
+
+19th point
+18.116822-120.573042
+
+20th point
+18.108216-120.568912
+
+21st point
+18.106839-120.568375
+
+22nd point
+18.103861-120.569598
+
+23rd point
+18.102790-120.571476
+
+24th point
+18.102036-120.571969
+
+25th point
+18.093755-120.569548
+
+26th point
+18.088900-120.568161
+
+27th point
+18.086932-120.567506
+
+28th point
+18.079324-120.563022
+
+29th point
+18.078640-120.562968
+
+30th point
+18.075876-120.564395
+
+31st point
+18.072470-120.562517
+
+Intersection 2 possible ways
+
+intersection 1st possible way
+32nd point         
+18.068085-120.561199
+
+33rd point
+18.059634-120.558645
+
+34th point
+18.055662-120.557363
+
+35th point
+18.061747-120.522699
+
+36th point
+18.060292-120.521870
+
+37th point
+18.060631-120.520599
+
+Final Destination
+38th point
+18.059229-120.519744
+
+
+2nd possible way
+32nd point
+18.067349-120.561429
+
+33rd point
+18.062878-120.565433
+
+34th point
+18.061150-120.565958
+
+35th point
+18.061150-120.565958
+
+36th point
+18.058465-120.566151
+
+37th point
+18.056407-120.564971
+
+38th point
+18.057587-120.563069
+
+39th point
+18.055074-120.561479
+
+40th point
+18.055662-120.557363
+
+41st point
+18.061747-120.522699
+
+42nd point
+18.060292-120.521870
+
+43rd point
+18.060631-120.520599
+
+Final Destination
+44th point
+18.059229-120.519744
+
+this are the routes, how do I simuloate the driver driving it? the intersection part is a coin flip so the simulation add to the randomness

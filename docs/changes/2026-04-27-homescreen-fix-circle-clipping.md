@@ -95,8 +95,26 @@ avatar: {
 
 ## Why This Change Was Necessary
 
-On Android, React Native `View` components with `borderRadius` do **not** automatically clip their children — `overflow: 'hidden'` must be explicitly set. Without it, emoji text and images extend beyond the circular boundary, making markers appear clipped or non-circular. The `Image` component on Android also does not reliably apply `borderRadius` when a `borderWidth` is also present, requiring the shape to be defined on a parent wrapper `View` instead.
+Android's `react-native-maps` custom marker rendering has **three combined issues** that caused the C-shape clipping:
+
+1. **`borderRadius` does not clip children** — `overflow: 'hidden'` must be explicitly set on Android for children to be masked to the circle boundary.
+2. **`elevation` inflates the bitmap size** — Android renders custom markers into an offscreen bitmap. `elevation` allocates extra shadow space, shifting the content inward and causing the border to be cropped at the bitmap edge (the C-shape effect). Removing `elevation` from marker styles eliminated this offset.
+3. **Android bitmap size threshold** — Even with the above fixes, markers above ~28×28px triggered clipping due to Android's View layer collapsing optimization in the maps library. Adding `collapsable={false}` prevents this, and reducing sizes to the confirmed working values (28×28 `iconMarker`, 22×22 `liveUserMarker`, 32×32 `markerRing`) fully resolved the issue.
+
+### Final Working Sizes (confirmed on device)
+
+| Element | Final Size |
+|:---|:---|
+| `markerWrapper` width | 36 |
+| `markerRing` | 32×32, r16 |
+| `iconMarker` | 28×28, r14 |
+| `iconText` fontSize | 12 |
+| `liveUserMarker` | 22×22, r11 |
+| `selfMarker` | 26×26, r13 |
+| `driverIcon` fontSize | 18 |
+| `driverPulse` | 28×28, r14 |
 
 ---
 
-    git commit -m "fix(HomeScreen): add overflow hidden to circular markers and fix avatar clipping on Android"
+    git commit -m "fix(HomeScreen): resolve Android map marker clipping via overflow:hidden, remove elevation, collapsable=false, reduced marker sizes"
+

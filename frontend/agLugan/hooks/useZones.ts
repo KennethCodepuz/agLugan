@@ -7,6 +7,7 @@ export interface Zone {
   classification: string;
   location: string;
   imageurl: string;
+  radius?: number;
 }
 
 export function useZones() {
