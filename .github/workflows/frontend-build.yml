@@ -1,0 +1,37 @@
+name: Frontend — EAS APK Build
+
+on:
+  # This triggers the build automatically when you push frontend changes to these branches
+  push:
+    branches: [main, staging]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-build.yml'
+  # This allows you to manually trigger a build from the GitHub Actions tab if you want to
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: frontend/agLugan
+        run: npm ci
+
+      - name: Build Android APK
+        working-directory: frontend/agLugan
+        run: eas build --platform android --profile production --non-interactive
