@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: ./agLugan
+      dockerfile: Dockerfile
+    container_name: aglugan-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # ── Database (Neon cloud — override here or via .env) ────────────────────
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      # ── JWT secrets ──────────────────────────────────────────────────────────
+      JWT_TEMP_TOKEN: ${JWT_TEMP_TOKEN}
+      JWT_AUTH_TOKEN: ${JWT_AUTH_TOKEN}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-360000}
+
+      # ── Google OAuth ─────────────────────────────────────────────────────────
+      GOOGLE_API_CLIENT_ID: ${GOOGLE_API_CLIENT_ID}
+
+      # ── JVM tuning for low-memory containers ─────────────────────────────────
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
