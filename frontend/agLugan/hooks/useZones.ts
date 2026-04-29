@@ -15,7 +15,7 @@ export function useZones() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const localUrl = "http://10.0.2.2:8080/api/getzones";
+  const localUrl = process.env.EXPO_PUBLIC_API_URL + "/api/getzones";
 
   useEffect(() => {
     async function fetchZones() {

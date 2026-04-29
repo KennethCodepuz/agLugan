@@ -17,7 +17,7 @@ type AuthData = {
 
 export default function Register() {
   const router = useRouter();
-  const localUrl = "http://10.0.2.2:8080/api/auth2/google/verifyToken";
+  const localUrl = process.env.EXPO_PUBLIC_API_URL + "/api/auth2/google/verifyToken";
 
   useEffect(() => {
     GoogleSignin.configure({
