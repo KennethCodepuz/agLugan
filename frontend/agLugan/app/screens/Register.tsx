@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 
 import { LinearGradient } from "expo-linear-gradient";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppleIcon from "../../assets/icons/appleIconWhite.svg";
 import GoogleIcon from "../../assets/icons/googleIcon.svg";
@@ -59,14 +59,14 @@ export default function Register() {
   };
 
   return (
-    <>
-      <SafeAreaView style={{ width: "100%", flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.container}>
           <View style={{ alignItems: "center" }}>
             <Image
               style={styles.logo}
               source={require("../../assets/logo-2.png")}
-            ></Image>
+            />
             <Text style={styles.agLugan}>agLugan</Text>
           </View>
 
@@ -79,13 +79,14 @@ export default function Register() {
             style={{
               width: "100%",
               alignItems: "center",
-              gap: 10,
+              gap: 15,
               justifyContent: "center",
+              maxWidth: 400,
             }}
           >
             <Text style={styles.termsText}>
               By continuing, you agree to our
-              <Text style={{ fontWeight: 800, color: "#4c1dda" }}>
+              <Text style={{ fontWeight: "800", color: "#4c1dda" }}>
                 {" "}
                 Terms & Privacy Policy
               </Text>
@@ -110,6 +111,7 @@ export default function Register() {
               <AppleIcon width={28} height={28} />
               <Text style={styles.buttonText}>Sign up with Apple</Text>
             </Pressable>
+            
             <Text style={styles.bottomText}>
               Already have an account?
               <Pressable
@@ -120,8 +122,8 @@ export default function Register() {
             </Text>
           </View>
         </View>
-      </SafeAreaView>
-    </>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -129,14 +131,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-start",
-    paddingBlock: 20,
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
     width: "100%",
     gap: 30,
   },
   logo: {
-    width: 220,
-    height: 220,
+    width: 150,
+    height: 150,
     resizeMode: "contain",
   },
   icon: {
@@ -147,58 +150,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 5,
-    borderWidth: 1,
+    gap: 10,
     borderRadius: 50,
     paddingVertical: 14,
     paddingHorizontal: 25,
-    width: "70%",
+    width: "100%",
   },
   appleButton: {
     alignItems: "center",
     backgroundColor: "black",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 5,
-    borderWidth: 1,
+    gap: 10,
     borderRadius: 50,
     paddingVertical: 14,
     paddingHorizontal: 25,
-    width: "70%",
+    width: "100%",
   },
   buttonText: {
     fontSize: 18,
-    fontFamily: "Roboto",
     color: "white",
+    fontWeight: "600",
   },
   agLugan: {
     fontSize: 28,
-    fontFamily: "serif",
     fontWeight: "bold",
+    marginTop: -10,
   },
   welcomeTextContainer: {
     width: "100%",
     alignItems: "center",
+    gap: 5,
   },
   welcomeText: {
     fontSize: 28,
-    fontWeight: "700",
-    fontFamily: "Inter",
+    fontWeight: "800",
   },
   createAccountTExt: {
     fontSize: 16,
     color: "#808080",
-    fontFamily: "inter",
   },
   termsText: {
     color: "#8a8a8a",
-    fontFamily: "Inter",
+    textAlign: "center",
   },
   bottomText: {
     fontSize: 16,
-    fontFamily: "Inter ",
     color: "#8a8a8a",
     width: "100%",
     textAlign: "center",
+    marginTop: 10,
   },
 });

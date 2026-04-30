@@ -19,6 +19,7 @@ import MapView, {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useZones, Zone } from "../../hooks/useZones";
 import { useAuth } from "../../context/AuthContext";
+import { ZoneModal } from "../../components/ZoneModal";
 
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || "ws://10.0.2.2:8080/ws";
 const RECONNECT_DELAY_MS = 3000;
@@ -82,6 +83,7 @@ function HomeScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
+  const [isZoneModalVisible, setIsZoneModalVisible] = useState(false);
   const [showZones, setShowZones] = useState(true);
   const [showDrivers, setShowDrivers] = useState(true);
   const [activeMarker, setActiveMarker] = useState<number | null>(null);
@@ -412,7 +414,7 @@ function HomeScreen() {
                   coordinate={{ latitude: zone.latitude, longitude: zone.longitude }}
                   anchor={{ x: 0.5, y: 1 }}
                   tracksViewChanges={true}
-                  onPress={() => { setSelectedZone(zone); setActiveMarker(zone.id); }}
+                  onPress={() => { setSelectedZone(zone); setActiveMarker(zone.id); setIsZoneModalVisible(true); }}
                 >
                   <View collapsable={false} style={styles.markerWrapper}>
                     {activeMarker === zone.id ? (
@@ -575,6 +577,13 @@ function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <ZoneModal
+        visible={isZoneModalVisible}
+        zone={selectedZone}
+        commuterCount={selectedZone ? (zoneCounts.get(selectedZone.id) ?? 0) : 0}
+        onClose={() => setIsZoneModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

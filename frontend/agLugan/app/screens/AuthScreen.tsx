@@ -2,6 +2,7 @@ import React from "react";
 
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -32,13 +33,13 @@ function AuthScreen() {
   };
 
   return (
-    <>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 32, fontWeight: 800 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 40 }}>
+        <Text style={{ fontSize: 32, fontWeight: "800", textAlign: "center" }}>
           Choose account type
         </Text>
         <View style={styles.container}>
-          <Pressable style={styles.button} onPress={goToUserForm}>
+          <Pressable style={styles.buttonWrapper} onPress={goToUserForm}>
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.button}
@@ -49,10 +50,10 @@ function AuthScreen() {
               <Image
                 style={styles.commuterImage}
                 source={require("../../assets/icons/boy.png")}
-              ></Image>
+              />
             </LinearGradient>
           </Pressable>
-          <Pressable style={styles.button} onPress={goToDriverForm}>
+          <Pressable style={styles.buttonWrapper} onPress={goToDriverForm}>
             <LinearGradient
               colors={["#4c1dda", "#9f1dd3"]}
               style={styles.button}
@@ -63,41 +64,45 @@ function AuthScreen() {
               <Image
                 style={styles.commuterImage}
                 source={require("../../assets/icons/chauffeur.png")}
-              ></Image>
+              />
             </LinearGradient>
           </Pressable>
         </View>
       </View>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 5,
+    width: "100%",
+    maxWidth: 400,
+    gap: 20,
+  },
+  buttonWrapper: {
+    width: "100%",
   },
   button: {
-    flex: 1,
     alignItems: "center",
-    height: 280,
+    justifyContent: "center",
+    height: 200,
     width: "100%",
     borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 15,
     gap: 15,
   },
   buttonText: {
     color: "white",
     fontSize: 28,
-    fontFamily: "Inter",
     fontWeight: "bold",
   },
   commuterImage: {
-    height: 160,
-    width: "90%",
+    height: 100,
+    resizeMode: "contain",
   },
 });
 

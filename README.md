@@ -12,6 +12,14 @@
 
 ---
 
+## 📱 Try the Live App (Staging)
+
+Scan the QR code below with your Android phone to download the latest cloud-built APK and connect to the live Railway production server!
+
+> *(QR Code will be placed here by the lead developer once the latest GitHub Action finishes building the APK!)*
+
+---
+
 ## 📖 Overview
 
 **agLugan** is an advanced, event-driven mobile platform designed to bridge the gap between public utility drivers (jeeps, buses, tricycles) and daily commuters. By providing a live, high-concurrency websocket layer, commuters can view approaching vehicles and real-time Estimated Times of Arrival (ETA), while drivers are empowered with live occupancy analytics at terminals and waiting sheds.
