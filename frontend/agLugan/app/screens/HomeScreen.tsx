@@ -129,11 +129,14 @@ function HomeScreen() {
     ws.onopen = () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       sendTimer.current = setInterval(() => {
-        // Only broadcast location when the user is actively waiting for a ride
+        const isDriver = currentUser?.role === "DRIVER";
+        const isWaitingCommuter = !isDriver && userStatusRef.current === "WAITING";
+
+        // Broadcast if it's a driver, OR if it's a commuter hailing a ride
         if (
           ws.readyState === WebSocket.OPEN &&
           latestLocation.current &&
-          userStatusRef.current === "WAITING"
+          (isDriver || isWaitingCommuter)
         ) {
           ws.send(
             JSON.stringify({
@@ -142,7 +145,7 @@ function HomeScreen() {
               role: currentUser?.role ?? "USER",
               id: currentUser?.id?.toString(),
               userId: currentUser?.id ? Number(currentUser.id) : undefined,
-              status: "WAITING",
+              status: userStatusRef.current,
             }),
           );
         }
